@@ -2,63 +2,98 @@ using UnityEngine;
 
 public class StockObject : MonoBehaviour
 {
+    [Header("Stock Information")]
     public StockInfo Info;
 
-    public float MoveSpeed;
-
+    [Header("Placement")]
+    public float MoveSpeed = 10f;
     public bool IsPlaced;
 
+    [Header("Components")]
     public Rigidbody TheRB;
-    public Collider Col;
+    public MeshCollider MeshCollider;
 
-    void Start()
+    private Vector3 targetLocalPosition;
+    private Quaternion targetLocalRotation = Quaternion.identity;
+
+    private void Awake()
     {
+        if (TheRB == null)
+        {
+            TheRB = GetComponent<Rigidbody>();
+        }
 
+        if (MeshCollider == null)
+        {
+            MeshCollider = GetComponent<MeshCollider>();
+        }
     }
 
-    void Update()
+    private void Update()
     {
-        if (IsPlaced == true)
+        if (!IsPlaced)
         {
-            transform.localPosition = Vector3.MoveTowards(
-                transform.localPosition,
-                Vector3.zero,
-                MoveSpeed * Time.deltaTime
-            );
-
-            transform.localRotation = Quaternion.Slerp(
-                transform.localRotation,
-                Quaternion.identity,
-                MoveSpeed * Time.deltaTime
-            );
+            return;
         }
+
+        transform.localPosition = Vector3.MoveTowards(transform.localPosition,targetLocalPosition,MoveSpeed * Time.deltaTime);
+        transform.localRotation = Quaternion.Slerp(transform.localRotation,targetLocalRotation,MoveSpeed * Time.deltaTime);
     }
 
     public void Pickup()
     {
-        TheRB.isKinematic = true;
+        IsPlaced = false;
+
+        if (TheRB != null)
+        {
+            TheRB.isKinematic = true;
+            TheRB.linearVelocity = Vector3.zero;
+            TheRB.angularVelocity = Vector3.zero;
+        }
+
+        if (MeshCollider != null)
+        {
+            MeshCollider.enabled = false;
+        }
 
         transform.localPosition = Vector3.zero;
         transform.localRotation = Quaternion.identity;
-
-        IsPlaced = false;
-
-        Col.enabled = false;
     }
 
-    public void MakePlaced()
+    public void MakePlaced(Vector3 localPosition,Quaternion localRotation)
     {
-        TheRB.isKinematic = true;
-
+        targetLocalPosition = localPosition;
+        targetLocalRotation = localRotation;
         IsPlaced = true;
 
-        Col.enabled = false;
+        if (TheRB != null)
+        {
+            TheRB.isKinematic = true;
+            TheRB.linearVelocity = Vector3.zero;
+            TheRB.angularVelocity = Vector3.zero;
+        }
+
+        if (MeshCollider != null)
+        {
+            MeshCollider.enabled = false;
+        }
     }
 
     public void Release()
     {
-        TheRB.isKinematic = false;
+        IsPlaced = false;
+        transform.SetParent(null,true);
 
-        Col.enabled = true;
+        if (TheRB != null)
+        {
+            TheRB.isKinematic = false;
+            TheRB.linearVelocity = Vector3.zero;
+            TheRB.angularVelocity = Vector3.zero;
+        }
+
+        if (MeshCollider != null)
+        {
+            MeshCollider.enabled = true;
+        }
     }
-} 
+}

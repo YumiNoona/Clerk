@@ -1,212 +1,282 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement")]
     public InputActionReference MoveAction;
     public CharacterController CharacterController;
-    public float MoveSpeed;
+    public float MoveSpeed = 5f;
 
-    private float VerticalSpeed;
+    private float verticalSpeed;
 
     [Header("Jump")]
     public InputActionReference JumpAction;
-    public float JumpForce;
+    public float JumpForce = 5f;
 
     [Header("Look")]
     public InputActionReference LookAction;
-    public float LookSpeed;
-
-    private float HorizontalRotation;
-    private float VerticalRotation;
-
+    public float LookSpeed = 100f;
     public Camera TheCamera;
-    public float MinLookAngle;
-    public float MaxLookAngle;
+    public float MinLookAngle = -80f;
+    public float MaxLookAngle = 80f;
+
+    private float horizontalRotation;
+    private float verticalRotation;
 
     [Header("Interaction")]
     public LayerMask WhatIsStock;
-    public float InteractionRange;
-
-    private StockObject HeldPickup;
-    public Transform HoldPoint;
-
-    public float ThrowForce;
-
     public LayerMask WhatIsShelf;
+    public float InteractionRange = 3f;
+    public Transform HoldPoint;
+    public float ThrowForce = 10f;
+
+    private StockObject heldPickup;
+
+    private void Awake()
+    {
+        if (CharacterController == null)
+        {
+            CharacterController = GetComponent<CharacterController>();
+        }
+
+        if (TheCamera == null)
+        {
+            TheCamera = GetComponentInChildren<Camera>();
+        }
+    }
 
     private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        horizontalRotation = transform.eulerAngles.y;
+    }
 
-        MoveAction.action.Enable();
-        JumpAction.action.Enable();
-        LookAction.action.Enable();
+    private void OnEnable()
+    {
+        EnableInputAction(MoveAction);
+        EnableInputAction(JumpAction);
+        EnableInputAction(LookAction);
     }
 
     private void OnDisable()
     {
-        MoveAction.action.Disable();
-        JumpAction.action.Disable();
-        LookAction.action.Disable();
+        DisableInputAction(MoveAction);
+        DisableInputAction(JumpAction);
+        DisableInputAction(LookAction);
     }
 
     private void Update()
     {
-        // LOOK
-        Vector2 LookInput = LookAction.action.ReadValue<Vector2>();
+        HandleLook();
+        HandleMovement();
+        HandleInteraction();
+    }
 
-        HorizontalRotation +=
-            LookInput.x * Time.deltaTime * LookSpeed;
-
-        transform.rotation =
-            Quaternion.Euler(0f, HorizontalRotation, 0f);
-
-        VerticalRotation -=
-            LookInput.y * Time.deltaTime * LookSpeed;
-
-        VerticalRotation = Mathf.Clamp(
-            VerticalRotation,
-            MinLookAngle,
-            MaxLookAngle
-        );
-
-        TheCamera.transform.localRotation =
-            Quaternion.Euler(VerticalRotation, 0f, 0f);
-
-        // MOVEMENT
-        Vector2 MoveInput = MoveAction.action.ReadValue<Vector2>();
-
-        Vector3 ForwardMovement =
-            transform.forward * MoveInput.y;
-
-        Vector3 RightMovement =
-            transform.right * MoveInput.x;
-
-        Vector3 MovementAmount =
-            RightMovement + ForwardMovement;
-
-        MovementAmount = MovementAmount.normalized;
-        MovementAmount = MovementAmount * MoveSpeed;
-
-        // JUMP AND GRAVITY
-        if (CharacterController.isGrounded == true)
+    private void HandleLook()
+    {
+        if (LookAction == null || TheCamera == null)
         {
-            VerticalSpeed = 0f;
-
-            if (JumpAction.action.WasPressedThisFrame())
-            {
-                VerticalSpeed = JumpForce;
-            }
+            return;
         }
 
-        VerticalSpeed =
-            VerticalSpeed +
-            (Physics.gravity.y * Time.deltaTime);
+        Vector2 lookInput = LookAction.action.ReadValue<Vector2>();
 
-        MovementAmount.y = VerticalSpeed;
+        horizontalRotation += lookInput.x * LookSpeed * Time.deltaTime;
+        verticalRotation -= lookInput.y * LookSpeed * Time.deltaTime;
+        verticalRotation = Mathf.Clamp(verticalRotation,MinLookAngle,MaxLookAngle);
 
-        CharacterController.Move(
-            MovementAmount * Time.deltaTime
-        );
+        transform.rotation = Quaternion.Euler(0f,horizontalRotation,0f);
+        TheCamera.transform.localRotation = Quaternion.Euler(verticalRotation,0f,0f);
+    }
 
-        // INTERACTION RAY
-        Ray Ray = TheCamera.ViewportPointToRay(
-            new Vector3(0.5f, 0.5f, 0f)
-        );
-
-        RaycastHit Hit;
-
-        // NOT HOLDING STOCK
-        if (HeldPickup == null)
+    private void HandleMovement()
+    {
+        if (CharacterController == null || MoveAction == null)
         {
-            // Pick stock up from the floor
-            if (Mouse.current.leftButton.wasPressedThisFrame)
-            {
-                if (Physics.Raycast(
-                    Ray,
-                    out Hit,
-                    InteractionRange,
-                    WhatIsStock
-                ))
-                {
-                    HeldPickup =
-                        Hit.collider.GetComponent<StockObject>();
+            return;
+        }
 
-                    if (HeldPickup != null)
-                    {
-                        HeldPickup.transform.SetParent(HoldPoint);
-                        HeldPickup.Pickup();
-                    }
-                }
+        Vector2 moveInput = MoveAction.action.ReadValue<Vector2>();
+        Vector3 movement = transform.forward * moveInput.y + transform.right * moveInput.x;
+
+        if (movement.sqrMagnitude > 1f)
+        {
+            movement.Normalize();
+        }
+
+        movement *= MoveSpeed;
+
+        if (CharacterController.isGrounded)
+        {
+            if (verticalSpeed < 0f)
+            {
+                verticalSpeed = -2f;
             }
 
-            // Get stock from a shelf
-            if (Mouse.current.rightButton.wasPressedThisFrame)
+            if (JumpAction != null && JumpAction.action.WasPressedThisFrame())
             {
-                if (Physics.Raycast(
-                    Ray,
-                    out Hit,
-                    InteractionRange,
-                    WhatIsShelf
-                ))
-                {
-                    ShelfSpaceController ShelfSpace =
-                        Hit.collider.GetComponent<ShelfSpaceController>();
-
-                    if (ShelfSpace != null)
-                    {
-                        HeldPickup = ShelfSpace.GetStock();
-
-                        if (HeldPickup != null)
-                        {
-                            HeldPickup.transform.SetParent(HoldPoint);
-                            HeldPickup.Pickup();
-                        }
-                    }
-                }
+                verticalSpeed = JumpForce;
             }
         }
         else
         {
-            // Place stock on a shelf
-            if (Mouse.current.leftButton.wasPressedThisFrame)
-            {
-                if (Physics.Raycast(
-                    Ray,
-                    out Hit,
-                    InteractionRange,
-                    WhatIsShelf
-                ))
-                {
-                    ShelfSpaceController ShelfSpace =
-                        Hit.collider.GetComponent<ShelfSpaceController>();
+            verticalSpeed += Physics.gravity.y * Time.deltaTime;
+        }
 
-                    if (ShelfSpace != null)
-                    {
-                        ShelfSpace.PlaceStock(HeldPickup);
-                        HeldPickup = null;
-                    }
-                }
-            }
+        movement.y = verticalSpeed;
+        CharacterController.Move(movement * Time.deltaTime);
+    }
 
-            // Throw held stock
-            if (Mouse.current.rightButton.wasPressedThisFrame)
-            {
-                StockObject StockToThrow = HeldPickup;
+    private void HandleInteraction()
+    {
+        if (TheCamera == null || Mouse.current == null)
+        {
+            return;
+        }
 
-                HeldPickup = null;
+        Ray interactionRay = TheCamera.ViewportPointToRay(new Vector3(0.5f,0.5f,0f));
 
-                StockToThrow.transform.SetParent(null);
-                StockToThrow.Release();
+        if (heldPickup == null)
+        {
+            HandlePickupFromFloor(interactionRay);
+            HandlePickupFromShelf(interactionRay);
+        }
+        else
+        {
+            HandlePlaceOnShelf(interactionRay);
+            HandleThrow();
+        }
+    }
 
-                StockToThrow.TheRB.AddForce(
-                    TheCamera.transform.forward * ThrowForce,
-                    ForceMode.Impulse
-                );
-            }
+    private void HandlePickupFromFloor(Ray interactionRay)
+    {
+        if (!Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsStock,QueryTriggerInteraction.Ignore))
+        {
+            return;
+        }
+
+        StockObject stockObject = hit.collider.GetComponentInParent<StockObject>();
+
+        if (stockObject == null)
+        {
+            return;
+        }
+
+        PickupStock(stockObject);
+    }
+
+    private void HandlePickupFromShelf(Ray interactionRay)
+    {
+        if (!Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+        {
+            return;
+        }
+
+        ShelfSpaceController shelfSpace = hit.collider.GetComponentInParent<ShelfSpaceController>();
+
+        if (shelfSpace == null)
+        {
+            return;
+        }
+
+        StockObject stockObject = shelfSpace.GetStock();
+
+        if (stockObject == null)
+        {
+            return;
+        }
+
+        PickupStock(stockObject);
+    }
+
+    private void HandlePlaceOnShelf(Ray interactionRay)
+    {
+        if (!Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+        {
+            return;
+        }
+
+        ShelfSpaceController shelfSpace = hit.collider.GetComponentInParent<ShelfSpaceController>();
+
+        if (shelfSpace == null)
+        {
+            return;
+        }
+
+        bool wasPlaced = shelfSpace.PlaceStock(heldPickup);
+
+        if (wasPlaced)
+        {
+            heldPickup = null;
+        }
+    }
+
+    private void HandleThrow()
+    {
+        if (!Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        if (heldPickup == null)
+        {
+            return;
+        }
+
+        StockObject stockToThrow = heldPickup;
+        heldPickup = null;
+
+        stockToThrow.Release();
+
+        if (stockToThrow.TheRB != null && TheCamera != null)
+        {
+            stockToThrow.TheRB.AddForce(TheCamera.transform.forward * ThrowForce,ForceMode.Impulse);
+        }
+    }
+
+    private void PickupStock(StockObject stockObject)
+    {
+        if (stockObject == null || HoldPoint == null)
+        {
+            return;
+        }
+
+        heldPickup = stockObject;
+        heldPickup.transform.SetParent(HoldPoint,true);
+        heldPickup.Pickup();
+    }
+
+    private static void EnableInputAction(InputActionReference actionReference)
+    {
+        if (actionReference != null)
+        {
+            actionReference.action.Enable();
+        }
+    }
+
+    private static void DisableInputAction(InputActionReference actionReference)
+    {
+        if (actionReference != null)
+        {
+            actionReference.action.Disable();
         }
     }
 }
