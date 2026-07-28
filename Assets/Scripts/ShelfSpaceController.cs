@@ -1,5 +1,14 @@
 using System.Collections.Generic;
+using TMPro;
+
 using UnityEngine;
+
+[System.Serializable]
+public class PlacementPointGroup
+{
+    public StockCategory Category;
+    public List<Transform> PlacementPoints = new List<Transform>();
+}
 
 public class ShelfSpaceController : MonoBehaviour
 {
@@ -9,16 +18,20 @@ public class ShelfSpaceController : MonoBehaviour
         PlacementPoints
     }
 
-    [Header("Shelf Information")]
+    //[Header("Shelf Information")]
     public StockInfo Info;
 
-    [Header("Objects")]
+    //[Header("Shelf Label")]
+    public TMP_Text ShelfLabel;
+    public string CurrencySymbol = "$";
+
+    //[Header("Objects")]
     public List<StockObject> ObjectsOnShelf = new List<StockObject>();
 
-    [Header("Placement Mode")]
+    //[Header("Placement Mode")]
     public PlacementMode CurrentPlacementMode = PlacementMode.SmartPlacement;
 
-    [Header("Smart Placement")]
+    //[Header("Smart Placement")]
     public Vector3 FirstObjectLocalPosition = new Vector3(-0.525f,0f,0.4f);
     public float ObjectSpacingX = 0.175f;
     public int ObjectsPerRow = 7;
@@ -26,8 +39,8 @@ public class ShelfSpaceController : MonoBehaviour
     public Vector3 RowSpacing = new Vector3(0f,0f,-0.215f);
     public Vector3 ObjectLocalRotation = Vector3.zero;
 
-    [Header("Placement Points")]
-    public List<Transform> PlacementPoints = new List<Transform>();
+    //[Header("Placement Point Groups")]
+    public List<PlacementPointGroup> PlacementGroups = new List<PlacementPointGroup>();
 
     private void Awake()
     {
@@ -36,13 +49,20 @@ public class ShelfSpaceController : MonoBehaviour
             ObjectsOnShelf = new List<StockObject>();
         }
 
-        if (PlacementPoints == null)
+        if (PlacementGroups == null)
         {
-            PlacementPoints = new List<Transform>();
+            PlacementGroups = new List<PlacementPointGroup>();
         }
 
         RemoveMissingObjects();
+
+        if (ObjectsOnShelf.Count > 0 && ObjectsOnShelf[0] != null)
+        {
+            Info = ObjectsOnShelf[0].Info;
+        }
+
         UpdateObjectPositions();
+        UpdateShelfLabel();
     }
 
     public bool PlaceStock(StockObject objectToPlace)
@@ -54,21 +74,38 @@ public class ShelfSpaceController : MonoBehaviour
 
         if (objectToPlace.Info == null)
         {
-            Debug.LogWarning(objectToPlace.name + " does not have StockInfo assigned.",objectToPlace);
+            Debug.LogWarning(objectToPlace.name + " does not have a StockInfo asset assigned.",objectToPlace);
+            return false;
+        }
+
+        if (objectToPlace.Info.Category == null)
+        {
+            Debug.LogWarning(objectToPlace.Info.name + " does not have a StockCategory assigned.",objectToPlace.Info);
             return false;
         }
 
         RemoveMissingObjects();
 
-        int maximumObjects = GetMaximumObjects();
-
-        if (maximumObjects <= 0)
+        if (ObjectsOnShelf.Count > 0 && !CanPlaceStock(objectToPlace))
         {
-            Debug.LogWarning("This shelf has no valid placement positions.",this);
             return false;
         }
 
-        if (ObjectsOnShelf.Count >= maximumObjects)
+        int objectIndex = ObjectsOnShelf.Count;
+        int maximumObjects = GetMaximumObjects(objectToPlace.Info.Category);
+
+        if (maximumObjects <= 0)
+        {
+            Debug.LogWarning("This shelf has no available placement positions for " + objectToPlace.Info.Category.CategoryName + ".",this);
+            return false;
+        }
+
+        if (objectIndex >= maximumObjects)
+        {
+            return false;
+        }
+
+        if (!TryGetPlacement(objectToPlace.Info.Category,objectIndex,out Vector3 targetPosition,out Quaternion targetRotation))
         {
             return false;
         }
@@ -77,26 +114,12 @@ public class ShelfSpaceController : MonoBehaviour
         {
             Info = objectToPlace.Info;
         }
-        else if (!CanPlaceStock(objectToPlace))
-        {
-            return false;
-        }
-
-        int objectIndex = ObjectsOnShelf.Count;
 
         objectToPlace.transform.SetParent(transform,true);
         ObjectsOnShelf.Add(objectToPlace);
-
-        Vector3 targetPosition;
-        Quaternion targetRotation;
-
-        if (!TryGetPlacement(objectIndex,out targetPosition,out targetRotation))
-        {
-            ObjectsOnShelf.Remove(objectToPlace);
-            return false;
-        }
-
         objectToPlace.MakePlaced(targetPosition,targetRotation);
+
+        UpdateShelfLabel();
 
         return true;
     }
@@ -108,6 +131,7 @@ public class ShelfSpaceController : MonoBehaviour
         if (ObjectsOnShelf.Count == 0)
         {
             Info = null;
+            UpdateShelfLabel();
             return null;
         }
 
@@ -121,6 +145,8 @@ public class ShelfSpaceController : MonoBehaviour
             Info = null;
         }
 
+        UpdateShelfLabel();
+
         return objectToReturn;
     }
 
@@ -131,25 +157,27 @@ public class ShelfSpaceController : MonoBehaviour
             return false;
         }
 
-        return Info.Name == objectToPlace.Info.Name;
+        return Info == objectToPlace.Info;
     }
 
-    private int GetMaximumObjects()
+    private int GetMaximumObjects(StockCategory category)
     {
         if (CurrentPlacementMode == PlacementMode.SmartPlacement)
         {
             return ObjectsPerRow * NumberOfRows;
         }
 
-        if (CurrentPlacementMode == PlacementMode.PlacementPoints)
+        PlacementPointGroup group = GetPlacementGroup(category);
+
+        if (group == null || group.PlacementPoints == null)
         {
-            return PlacementPoints.Count;
+            return 0;
         }
 
-        return 0;
+        return group.PlacementPoints.Count;
     }
 
-    private bool TryGetPlacement(int objectIndex,out Vector3 targetPosition,out Quaternion targetRotation)
+    private bool TryGetPlacement(StockCategory category,int objectIndex,out Vector3 targetPosition,out Quaternion targetRotation)
     {
         targetPosition = Vector3.zero;
         targetRotation = Quaternion.identity;
@@ -177,27 +205,49 @@ public class ShelfSpaceController : MonoBehaviour
             return true;
         }
 
-        if (CurrentPlacementMode == PlacementMode.PlacementPoints)
+        PlacementPointGroup group = GetPlacementGroup(category);
+
+        if (group == null || group.PlacementPoints == null)
         {
-            if (objectIndex < 0 || objectIndex >= PlacementPoints.Count)
-            {
-                return false;
-            }
-
-            Transform placementPoint = PlacementPoints[objectIndex];
-
-            if (placementPoint == null)
-            {
-                return false;
-            }
-
-            targetPosition = transform.InverseTransformPoint(placementPoint.position);
-            targetRotation = Quaternion.Inverse(transform.rotation) * placementPoint.rotation;
-
-            return true;
+            return false;
         }
 
-        return false;
+        if (objectIndex < 0 || objectIndex >= group.PlacementPoints.Count)
+        {
+            return false;
+        }
+
+        Transform placementPoint = group.PlacementPoints[objectIndex];
+
+        if (placementPoint == null)
+        {
+            return false;
+        }
+
+        targetPosition = transform.InverseTransformPoint(placementPoint.position);
+        targetRotation = Quaternion.Inverse(transform.rotation) * placementPoint.rotation;
+
+        return true;
+    }
+
+    private PlacementPointGroup GetPlacementGroup(StockCategory category)
+    {
+        if (category == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < PlacementGroups.Count; i++)
+        {
+            PlacementPointGroup group = PlacementGroups[i];
+
+            if (group != null && group.Category == category)
+            {
+                return group;
+            }
+        }
+
+        return null;
     }
 
     private void RemoveMissingObjects()
@@ -216,15 +266,12 @@ public class ShelfSpaceController : MonoBehaviour
         {
             StockObject stockObject = ObjectsOnShelf[i];
 
-            if (stockObject == null)
+            if (stockObject == null || stockObject.Info == null || stockObject.Info.Category == null)
             {
                 continue;
             }
 
-            Vector3 targetPosition;
-            Quaternion targetRotation;
-
-            if (!TryGetPlacement(i,out targetPosition,out targetRotation))
+            if (!TryGetPlacement(stockObject.Info.Category,i,out Vector3 targetPosition,out Quaternion targetRotation))
             {
                 continue;
             }
@@ -232,6 +279,22 @@ public class ShelfSpaceController : MonoBehaviour
             stockObject.transform.SetParent(transform,true);
             stockObject.MakePlaced(targetPosition,targetRotation);
         }
+    }
+
+    private void UpdateShelfLabel()
+    {
+        if (ShelfLabel == null)
+        {
+            return;
+        }
+
+        if (ObjectsOnShelf.Count == 0 || Info == null)
+        {
+            ShelfLabel.text = string.Empty;
+            return;
+        }
+
+        ShelfLabel.text = CurrencySymbol + Info.Price.ToString("0.00");
     }
 
     private void OnValidate()

@@ -1,17 +1,45 @@
 using UnityEngine;
 
-[System.Serializable]
-public class StockInfo
+[CreateAssetMenu(fileName = "New Stock Product",menuName = "Stock System/Stock Product")]
+public class StockInfo : ScriptableObject
 {
-    public string Name;
+    [SerializeField,HideInInspector]
+    private string productId;
 
-    public enum StockType
+    [Header("Product Information")]
+    public string ProductName;
+
+    [Header("Category")]
+    public StockCategory Category;
+
+    [Header("Pricing")]
+    public float Price;
+
+    public string ProductId
     {
-        Food,
-        Drink,
-        Chips,
-        Candy
+        get
+        {
+            return productId;
+        }
     }
 
-    public StockType TypeOfStock;
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        string assetPath = UnityEditor.AssetDatabase.GetAssetPath(this);
+
+        if (string.IsNullOrEmpty(assetPath))
+        {
+            return;
+        }
+
+        string assetGuid = UnityEditor.AssetDatabase.AssetPathToGUID(assetPath);
+
+        if (productId != assetGuid)
+        {
+            productId = assetGuid;
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+    }
+#endif
 }

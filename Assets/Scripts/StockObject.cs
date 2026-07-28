@@ -25,7 +25,7 @@ public class StockObject : MonoBehaviour
 
         if (MeshCollider == null)
         {
-            MeshCollider = GetComponent<MeshCollider>();
+            MeshCollider = GetComponentInChildren<MeshCollider>();
         }
     }
 
@@ -46,9 +46,15 @@ public class StockObject : MonoBehaviour
 
         if (TheRB != null)
         {
-            TheRB.isKinematic = true;
+            if (!TheRB.isKinematic)
+       
+        {
             TheRB.linearVelocity = Vector3.zero;
             TheRB.angularVelocity = Vector3.zero;
+        }
+            
+            TheRB.isKinematic = true;
+
         }
 
         if (MeshCollider != null)
@@ -68,11 +74,17 @@ public class StockObject : MonoBehaviour
 
         if (TheRB != null)
         {
-            TheRB.isKinematic = true;
+            if (!TheRB.isKinematic)
+        
+        {
             TheRB.linearVelocity = Vector3.zero;
             TheRB.angularVelocity = Vector3.zero;
         }
+            
+            TheRB.isKinematic = true;
 
+        }
+        
         if (MeshCollider != null)
         {
             MeshCollider.enabled = false;
