@@ -7,14 +7,16 @@ public class StockInfoEditor : Editor
     private SerializedProperty productId;
     private SerializedProperty productName;
     private SerializedProperty category;
-    private SerializedProperty price;
+    private SerializedProperty basePrice;
+    private SerializedProperty currentPrice;
 
     private void OnEnable()
     {
         productId = serializedObject.FindProperty("productId");
         productName = serializedObject.FindProperty("ProductName");
         category = serializedObject.FindProperty("Category");
-        price = serializedObject.FindProperty("Price");
+        basePrice = serializedObject.FindProperty("BasePrice");
+        currentPrice = serializedObject.FindProperty("CurrentPrice");
     }
 
     public override void OnInspectorGUI()
@@ -36,7 +38,8 @@ public class StockInfoEditor : Editor
         EditorGUILayout.Space();
 
         EditorGUILayout.LabelField("Pricing",EditorStyles.boldLabel);
-        EditorGUILayout.PropertyField(price);
+        EditorGUILayout.PropertyField(basePrice);
+        EditorGUILayout.PropertyField(currentPrice);
 
         serializedObject.ApplyModifiedProperties();
     }

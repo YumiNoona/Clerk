@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3d1196cd6bbd534eb51e453fc10c7ab, type: 3}
   m_Name: Lime Juice
   m_EditorClassIdentifier: Assembly-CSharp::StockInfo
+  productId: 3e28a417404ce7f418d305eb8e260e9d
   ProductName: Lime Juice
   Category: {fileID: 11400000, guid: 0c2d09dc374de1f4899b12dbf68ba914, type: 2}
-  Price: 2.99
+  BasePrice: 2.99
+  CurrentPrice: 1.99

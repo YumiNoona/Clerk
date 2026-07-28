@@ -13,7 +13,8 @@ public class StockInfo : ScriptableObject
     public StockCategory Category;
 
     [Header("Pricing")]
-    public float Price;
+    public float BasePrice;
+    public float CurrentPrice;
 
     public string ProductId
     {
@@ -28,17 +29,25 @@ public class StockInfo : ScriptableObject
     {
         string assetPath = UnityEditor.AssetDatabase.GetAssetPath(this);
 
-        if (string.IsNullOrEmpty(assetPath))
+        if (!string.IsNullOrEmpty(assetPath))
         {
-            return;
+            string assetGuid = UnityEditor.AssetDatabase.AssetPathToGUID(assetPath);
+
+            if (productId != assetGuid)
+            {
+                productId = assetGuid;
+                UnityEditor.EditorUtility.SetDirty(this);
+            }
         }
 
-        string assetGuid = UnityEditor.AssetDatabase.AssetPathToGUID(assetPath);
-
-        if (productId != assetGuid)
+        if (BasePrice < 0f)
         {
-            productId = assetGuid;
-            UnityEditor.EditorUtility.SetDirty(this);
+            BasePrice = 0f;
+        }
+
+        if (CurrentPrice < 0f)
+        {
+            CurrentPrice = 0f;
         }
     }
 #endif

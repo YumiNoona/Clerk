@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using TMPro;
-
 using UnityEngine;
 
 [System.Serializable]
@@ -18,20 +17,15 @@ public class ShelfSpaceController : MonoBehaviour
         PlacementPoints
     }
 
-    //[Header("Shelf Information")]
     public StockInfo Info;
 
-    //[Header("Shelf Label")]
     public TMP_Text ShelfLabel;
     public string CurrencySymbol = "$";
 
-    //[Header("Objects")]
     public List<StockObject> ObjectsOnShelf = new List<StockObject>();
 
-    //[Header("Placement Mode")]
     public PlacementMode CurrentPlacementMode = PlacementMode.SmartPlacement;
 
-    //[Header("Smart Placement")]
     public Vector3 FirstObjectLocalPosition = new Vector3(-0.525f,0f,0.4f);
     public float ObjectSpacingX = 0.175f;
     public int ObjectsPerRow = 7;
@@ -39,7 +33,6 @@ public class ShelfSpaceController : MonoBehaviour
     public Vector3 RowSpacing = new Vector3(0f,0f,-0.215f);
     public Vector3 ObjectLocalRotation = Vector3.zero;
 
-    //[Header("Placement Point Groups")]
     public List<PlacementPointGroup> PlacementGroups = new List<PlacementPointGroup>();
 
     private void Awake()
@@ -148,6 +141,51 @@ public class ShelfSpaceController : MonoBehaviour
         UpdateShelfLabel();
 
         return objectToReturn;
+    }
+
+    public void StartPriceUpdate()
+    {
+        RemoveMissingObjects();
+
+        if (ObjectsOnShelf.Count == 0 || Info == null)
+        {
+            return;
+        }
+
+        if (UIController.Instance == null)
+        {
+            Debug.LogWarning("UIController was not found in the scene.",this);
+            return;
+        }
+
+        UIController.Instance.OpenUpdatePrice(this);
+    }
+
+    public void SetCurrentPrice(float newPrice)
+    {
+        if (Info == null)
+        {
+            return;
+        }
+
+        Info.CurrentPrice = newPrice;
+        UpdateShelfLabel();
+    }
+
+    public void UpdateShelfLabel()
+    {
+        if (ShelfLabel == null)
+        {
+            return;
+        }
+
+        if (ObjectsOnShelf.Count == 0 || Info == null)
+        {
+            ShelfLabel.text = string.Empty;
+            return;
+        }
+
+        ShelfLabel.text = CurrencySymbol + Info.CurrentPrice.ToString("0.00");
     }
 
     private bool CanPlaceStock(StockObject objectToPlace)
@@ -279,22 +317,6 @@ public class ShelfSpaceController : MonoBehaviour
             stockObject.transform.SetParent(transform,true);
             stockObject.MakePlaced(targetPosition,targetRotation);
         }
-    }
-
-    private void UpdateShelfLabel()
-    {
-        if (ShelfLabel == null)
-        {
-            return;
-        }
-
-        if (ObjectsOnShelf.Count == 0 || Info == null)
-        {
-            ShelfLabel.text = string.Empty;
-            return;
-        }
-
-        ShelfLabel.text = CurrencySymbol + Info.Price.ToString("0.00");
     }
 
     private void OnValidate()

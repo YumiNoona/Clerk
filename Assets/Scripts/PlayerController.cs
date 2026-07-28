@@ -70,6 +70,11 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        if (UIController.Instance != null && UIController.Instance.IsPricePanelOpen)
+        {
+            return;
+        }
+
         HandleLook();
         HandleMovement();
         HandleInteraction();
@@ -139,6 +144,8 @@ public class PlayerController : MonoBehaviour
 
         Ray interactionRay = TheCamera.ViewportPointToRay(new Vector3(0.5f,0.5f,0f));
 
+        HandlePriceUpdate(interactionRay);
+
         if (heldPickup == null)
         {
             HandlePickupFromFloor(interactionRay);
@@ -149,6 +156,28 @@ public class PlayerController : MonoBehaviour
             HandlePlaceOnShelf(interactionRay);
             HandleThrow();
         }
+    }
+
+    private void HandlePriceUpdate(Ray interactionRay)
+    {
+        if (Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+        {
+            return;
+        }
+
+        ShelfSpaceController shelfSpace = hit.collider.GetComponentInParent<ShelfSpaceController>();
+
+        if (shelfSpace == null)
+        {
+            return;
+        }
+
+        shelfSpace.StartPriceUpdate();
     }
 
     private void HandlePickupFromFloor(Ray interactionRay)
