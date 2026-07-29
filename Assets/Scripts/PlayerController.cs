@@ -28,11 +28,21 @@ public class PlayerController : MonoBehaviour
     [Header("Interaction")]
     public LayerMask WhatIsStock;
     public LayerMask WhatIsShelf;
+    public LayerMask WhatIsStockBox;
     public float InteractionRange = 3f;
+
+    [Header("Stock Holding")]
     public Transform HoldPoint;
     public float ThrowForce = 10f;
 
+    [Header("Box Holding")]
+    public Transform BoxHoldPoint;
+    public float BoxThrowForce = 5f;
+    public float StockingInterval = 0.2f;
+
     private StockObject heldPickup;
+    private StockBoxController heldBox;
+    private float nextStockTime;
 
     private void Awake()
     {
@@ -142,58 +152,142 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        Ray interactionRay = TheCamera.ViewportPointToRay(new Vector3(0.5f,0.5f,0f));
+        Ray ray = TheCamera.ViewportPointToRay(new Vector3(0.5f,0.5f,0f));
 
-        HandlePriceUpdate(interactionRay);
+        HandlePriceUpdate(ray);
 
-        if (heldPickup == null)
+        if (heldBox != null)
         {
-            HandlePickupFromFloor(interactionRay);
-            HandlePickupFromShelf(interactionRay);
+            HandleHeldBox(ray);
+            return;
         }
-        else
+
+        if (heldPickup != null)
         {
-            HandlePlaceOnShelf(interactionRay);
-            HandleThrow();
+            HandleHeldStock(ray);
+            return;
         }
+
+        HandlePickupStock(ray);
+        HandlePickupStockFromShelf(ray);
+        HandlePickupBox(ray);
     }
 
-    private void HandlePriceUpdate(Ray interactionRay)
-    {
-        if (Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame)
-        {
-            return;
-        }
-
-        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
-        {
-            return;
-        }
-
-        ShelfSpaceController shelfSpace = hit.collider.GetComponentInParent<ShelfSpaceController>();
-
-        if (shelfSpace == null)
-        {
-            return;
-        }
-
-        shelfSpace.StartPriceUpdate();
-    }
-
-    private void HandlePickupFromFloor(Ray interactionRay)
+    private void HandlePickupBox(Ray ray)
     {
         if (!Mouse.current.leftButton.wasPressedThisFrame)
         {
             return;
         }
 
-        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsStock,QueryTriggerInteraction.Ignore))
+        if (!Physics.Raycast(ray,out RaycastHit hit,InteractionRange,WhatIsStockBox,QueryTriggerInteraction.Ignore))
+        {
+            return;
+        }
+
+        StockBoxController box = hit.collider.GetComponentInParent<StockBoxController>();
+
+        if (box == null || BoxHoldPoint == null)
+        {
+            return;
+        }
+
+        heldBox = box;
+        heldBox.Pickup(BoxHoldPoint);
+    }
+
+    private void HandleHeldBox(Ray ray)
+    {
+        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            heldBox.ToggleOpen();
+        }
+
+        if (Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            DropHeldBox();
+            return;
+        }
+
+        if (!heldBox.IsOpen || !Mouse.current.leftButton.isPressed || Time.time < nextStockTime)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(ray,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+        {
+            return;
+        }
+
+        ShelfSpaceController shelf = hit.collider.GetComponentInParent<ShelfSpaceController>();
+
+        if (shelf == null)
+        {
+            return;
+        }
+
+        if (heldBox.TryStockShelf(shelf))
+        {
+            nextStockTime = Time.time + StockingInterval;
+        }
+    }
+
+    private void DropHeldBox()
+    {
+        StockBoxController boxToDrop = heldBox;
+        heldBox = null;
+
+        boxToDrop.Release();
+
+        if (boxToDrop.TheRB != null && TheCamera != null)
+        {
+            boxToDrop.TheRB.AddForce(TheCamera.transform.forward * BoxThrowForce,ForceMode.Impulse);
+        }
+    }
+
+    private void HandlePickupStock(Ray ray)
+    {
+        if (!Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(ray,out RaycastHit hit,InteractionRange,WhatIsStock,QueryTriggerInteraction.Ignore))
         {
             return;
         }
 
         StockObject stockObject = hit.collider.GetComponentInParent<StockObject>();
 
+        if (stockObject == null || stockObject.IsBoxPreview)
+        {
+            return;
+        }
+
+        PickupStock(stockObject);
+    }
+
+    private void HandlePickupStockFromShelf(Ray ray)
+    {
+        if (!Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(ray,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+        {
+            return;
+        }
+
+        ShelfSpaceController shelf = hit.collider.GetComponentInParent<ShelfSpaceController>();
+
+        if (shelf == null)
+        {
+            return;
+        }
+
+        StockObject stockObject = shelf.GetStock();
+
         if (stockObject == null)
         {
             return;
@@ -202,74 +296,29 @@ public class PlayerController : MonoBehaviour
         PickupStock(stockObject);
     }
 
-    private void HandlePickupFromShelf(Ray interactionRay)
+    private void HandleHeldStock(Ray ray)
     {
-        if (!Mouse.current.rightButton.wasPressedThisFrame)
+        if (Mouse.current.leftButton.wasPressedThisFrame)
         {
-            return;
+            if (Physics.Raycast(ray,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+            {
+                ShelfSpaceController shelf = hit.collider.GetComponentInParent<ShelfSpaceController>();
+
+                if (shelf != null && shelf.PlaceStock(heldPickup))
+                {
+                    heldPickup = null;
+                }
+            }
         }
 
-        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+        if (Mouse.current.rightButton.wasPressedThisFrame)
         {
-            return;
-        }
-
-        ShelfSpaceController shelfSpace = hit.collider.GetComponentInParent<ShelfSpaceController>();
-
-        if (shelfSpace == null)
-        {
-            return;
-        }
-
-        StockObject stockObject = shelfSpace.GetStock();
-
-        if (stockObject == null)
-        {
-            return;
-        }
-
-        PickupStock(stockObject);
-    }
-
-    private void HandlePlaceOnShelf(Ray interactionRay)
-    {
-        if (!Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            return;
-        }
-
-        if (!Physics.Raycast(interactionRay,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
-        {
-            return;
-        }
-
-        ShelfSpaceController shelfSpace = hit.collider.GetComponentInParent<ShelfSpaceController>();
-
-        if (shelfSpace == null)
-        {
-            return;
-        }
-
-        bool wasPlaced = shelfSpace.PlaceStock(heldPickup);
-
-        if (wasPlaced)
-        {
-            heldPickup = null;
+            ThrowHeldStock();
         }
     }
 
-    private void HandleThrow()
+    private void ThrowHeldStock()
     {
-        if (!Mouse.current.rightButton.wasPressedThisFrame)
-        {
-            return;
-        }
-
-        if (heldPickup == null)
-        {
-            return;
-        }
-
         StockObject stockToThrow = heldPickup;
         heldPickup = null;
 
@@ -291,6 +340,26 @@ public class PlayerController : MonoBehaviour
         heldPickup = stockObject;
         heldPickup.transform.SetParent(HoldPoint,true);
         heldPickup.Pickup();
+    }
+
+    private void HandlePriceUpdate(Ray ray)
+    {
+        if (Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame || heldBox != null)
+        {
+            return;
+        }
+
+        if (!Physics.Raycast(ray,out RaycastHit hit,InteractionRange,WhatIsShelf,QueryTriggerInteraction.Collide))
+        {
+            return;
+        }
+
+        ShelfSpaceController shelf = hit.collider.GetComponentInParent<ShelfSpaceController>();
+
+        if (shelf != null)
+        {
+            shelf.StartPriceUpdate();
+        }
     }
 
     private static void EnableInputAction(InputActionReference actionReference)

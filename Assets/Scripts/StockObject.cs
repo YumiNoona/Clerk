@@ -2,19 +2,26 @@ using UnityEngine;
 
 public class StockObject : MonoBehaviour
 {
-    [Header("Stock Information")]
     public StockInfo Info;
 
-    [Header("Placement")]
     public float MoveSpeed = 10f;
     public bool IsPlaced;
 
-    [Header("Components")]
     public Rigidbody TheRB;
     public MeshCollider MeshCollider;
 
     private Vector3 targetLocalPosition;
     private Quaternion targetLocalRotation = Quaternion.identity;
+
+    private bool isBoxPreview;
+
+    public bool IsBoxPreview
+    {
+        get
+        {
+            return isBoxPreview;
+        }
+    }
 
     private void Awake()
     {
@@ -42,19 +49,22 @@ public class StockObject : MonoBehaviour
 
     public void Pickup()
     {
+        if (isBoxPreview)
+        {
+            return;
+        }
+
         IsPlaced = false;
 
         if (TheRB != null)
         {
             if (!TheRB.isKinematic)
-       
-        {
-            TheRB.linearVelocity = Vector3.zero;
-            TheRB.angularVelocity = Vector3.zero;
-        }
-            
-            TheRB.isKinematic = true;
+            {
+                TheRB.linearVelocity = Vector3.zero;
+                TheRB.angularVelocity = Vector3.zero;
+            }
 
+            TheRB.isKinematic = true;
         }
 
         if (MeshCollider != null)
@@ -68,6 +78,7 @@ public class StockObject : MonoBehaviour
 
     public void MakePlaced(Vector3 localPosition,Quaternion localRotation)
     {
+        isBoxPreview = false;
         targetLocalPosition = localPosition;
         targetLocalRotation = localRotation;
         IsPlaced = true;
@@ -75,24 +86,51 @@ public class StockObject : MonoBehaviour
         if (TheRB != null)
         {
             if (!TheRB.isKinematic)
-        
-        {
-            TheRB.linearVelocity = Vector3.zero;
-            TheRB.angularVelocity = Vector3.zero;
-        }
-            
-            TheRB.isKinematic = true;
+            {
+                TheRB.linearVelocity = Vector3.zero;
+                TheRB.angularVelocity = Vector3.zero;
+            }
 
+            TheRB.isKinematic = true;
         }
-        
+
         if (MeshCollider != null)
         {
             MeshCollider.enabled = false;
         }
     }
 
+    public void SetAsBoxPreview()
+    {
+        isBoxPreview = true;
+        IsPlaced = false;
+
+        if (TheRB != null)
+        {
+            if (!TheRB.isKinematic)
+            {
+                TheRB.linearVelocity = Vector3.zero;
+                TheRB.angularVelocity = Vector3.zero;
+            }
+
+            TheRB.isKinematic = true;
+        }
+
+        if (MeshCollider != null)
+        {
+            MeshCollider.enabled = false;
+        }
+
+        gameObject.layer = 0;
+    }
+
     public void Release()
     {
+        if (isBoxPreview)
+        {
+            return;
+        }
+
         IsPlaced = false;
         transform.SetParent(null,true);
 

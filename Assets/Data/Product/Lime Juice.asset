@@ -17,3 +17,5 @@ MonoBehaviour:
   Category: {fileID: 11400000, guid: 0c2d09dc374de1f4899b12dbf68ba914, type: 2}
   BasePrice: 2.99
   CurrentPrice: 1.99
+  StockPrefab: {fileID: 44562709326442563, guid: b3a17807d9f383d4d88567a9ad7014ab, type: 3}
+  DefaultBoxLayout: {fileID: 11400000, guid: b443c40ba0e8fdb45a43853cb2069d80, type: 2}

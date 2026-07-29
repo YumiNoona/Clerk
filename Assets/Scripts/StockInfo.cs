@@ -6,15 +6,14 @@ public class StockInfo : ScriptableObject
     [SerializeField,HideInInspector]
     private string productId;
 
-    [Header("Product Information")]
     public string ProductName;
-
-    [Header("Category")]
     public StockCategory Category;
 
-    [Header("Pricing")]
     public float BasePrice;
     public float CurrentPrice;
+
+    public StockObject StockPrefab;
+    public BoxLayout DefaultBoxLayout;
 
     public string ProductId
     {
@@ -40,15 +39,8 @@ public class StockInfo : ScriptableObject
             }
         }
 
-        if (BasePrice < 0f)
-        {
-            BasePrice = 0f;
-        }
-
-        if (CurrentPrice < 0f)
-        {
-            CurrentPrice = 0f;
-        }
+        BasePrice = Mathf.Max(0f,BasePrice);
+        CurrentPrice = Mathf.Max(0f,CurrentPrice);
     }
 #endif
 }
