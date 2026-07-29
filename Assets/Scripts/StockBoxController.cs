@@ -139,6 +139,7 @@ public class StockBoxController : MonoBehaviour
     public void Release()
     {
         isHeld = false;
+        SetOpen(false);
         transform.SetParent(null,true);
 
         if (TheRB != null)
