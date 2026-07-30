@@ -14,3 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PurchaseCatalog
   StockPurchases:
   - {fileID: 11400000, guid: 48972793bbd3ee34ab72f68123873f46, type: 2}
+  FurniturePurchases:
+  - {fileID: 11400000, guid: 4dc3b068074d0454c82a28ab41a23deb, type: 2}

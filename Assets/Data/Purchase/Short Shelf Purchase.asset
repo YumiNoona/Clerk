@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f987b469a25b11048af4bbe64d62e509, type: 3}
+  m_Name: Short Shelf Purchase
+  m_EditorClassIdentifier: Assembly-CSharp::FurniturePurchaseData
+  purchaseId: 4dc3b068074d0454c82a28ab41a23deb
+  DisplayName: Short Shelf
+  Icon: {fileID: 0}
+  PurchasePrice: 100
+  FurniturePrefab: {fileID: 3625017169168205208, guid: 5555f9538fc5b7c469be0671f39f89da, type: 3}

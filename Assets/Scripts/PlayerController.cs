@@ -29,6 +29,7 @@ public class PlayerController : MonoBehaviour
     public LayerMask WhatIsStock;
     public LayerMask WhatIsShelf;
     public LayerMask WhatIsStockBox;
+    public LayerMask WhatIsFurniture;
     public float InteractionRange = 3f;
 
     [Header("Stock Holding")]
@@ -87,6 +88,12 @@ public class PlayerController : MonoBehaviour
 
         HandleLook();
         HandleMovement();
+
+        if (FurniturePlacementController.Instance != null && FurniturePlacementController.Instance.IsPlacing)
+        {
+            return;
+        }
+
         HandleInteraction();
     }
 
@@ -168,9 +175,40 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        HandleMoveFurniture(ray);
         HandlePickupStock(ray);
         HandlePickupStockFromShelf(ray);
         HandlePickupBox(ray);
+    }
+
+    private void HandleMoveFurniture(Ray ray)
+    {
+    if (Keyboard.current == null || !Keyboard.current.fKey.wasPressedThisFrame)
+    {
+        return;
+    }
+
+    if (FurniturePlacementController.Instance == null || FurniturePlacementController.Instance.IsPlacing)
+    {
+        return;
+    }
+
+    RaycastHit[] hits = Physics.RaycastAll(ray,InteractionRange,Physics.DefaultRaycastLayers,QueryTriggerInteraction.Ignore);
+
+    System.Array.Sort(hits,(firstHit,secondHit) => firstHit.distance.CompareTo(secondHit.distance));
+
+    for (int i = 0; i < hits.Length; i++)
+    {
+        PlaceableFurniture furniture = hits[i].collider.GetComponentInParent<PlaceableFurniture>();
+
+        if (furniture == null)
+        {
+            continue;
+        }
+
+        FurniturePlacementController.Instance.BeginMovePlacement(furniture);
+        return;
+    }
     }
 
     private void HandlePickupBox(Ray ray)
