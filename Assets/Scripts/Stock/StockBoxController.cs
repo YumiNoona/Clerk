@@ -2,38 +2,52 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
-public class StockBoxController : MonoBehaviour
+public class StockBoxController :
+    InteractableBehaviour,
+    IHeldItem
 {
-    //[Header("Product")]
     public StockInfo Product;
-
-    //[Header("Box Layout")]
     public BoxLayout Layout;
-
-    //[Header("Quantity")]
     public int Quantity = 12;
 
-    //[Header("Components")]
     public Rigidbody TheRB;
     public Collider BoxCollider;
 
-    //[Header("Flaps")]
     public Transform LeftFlapPivot;
     public Transform RightFlapPivot;
 
     public Vector3 LeftFlapClosedRotation = Vector3.zero;
-    public Vector3 LeftFlapOpenRotation = new Vector3(0f,0f,110f);
+    public Vector3 LeftFlapOpenRotation =
+        new Vector3(0f,0f,110f);
 
     public Vector3 RightFlapClosedRotation = Vector3.zero;
-    public Vector3 RightFlapOpenRotation = new Vector3(0f,0f,-110f);
+    public Vector3 RightFlapOpenRotation =
+        new Vector3(0f,0f,-110f);
 
     public float FlapAnimationSpeed = 5f;
 
-    //[Header("Runtime Contents")]
     public bool ShowRuntimeContents = true;
     public Transform ContentOrigin;
     public float RuntimeContentsRevealDelay = 0.15f;
+
+    [Header("Held Interaction")]
+    public float ThrowForce = 5f;
+    public float StockingInterval = 0.2f;
+
+    [TextArea]
+    public string OpenPrompt = "[E] Open Box";
+
+    [TextArea]
+    public string ClosePrompt = "[E] Close Box";
+
+    [TextArea]
+    public string ThrowPrompt = "[Right Click] Throw";
+
+    [TextArea]
+    public string StockShelfPrompt =
+        "[Hold Left Click] Stock Shelf";
 
     [Header("Label")]
     public TMP_Text ProductNameLabel;
@@ -50,50 +64,27 @@ public class StockBoxController : MonoBehaviour
     public Transform EditorPreviewRoot;
 #endif
 
-    private readonly List<StockObject> runtimePreviewObjects = new List<StockObject>();
+    private readonly List<StockObject> runtimePreviewObjects =
+        new List<StockObject>();
 
     private Transform runtimePreviewRoot;
     private bool isOpen;
     private bool isHeld;
+    private float nextStockTime;
 
     private Coroutine flapRoutine;
     private Coroutine runtimePreviewRoutine;
 
-    public bool IsOpen
-    {
-        get
-        {
-            return isOpen;
-        }
-    }
+    public bool IsOpen => isOpen;
+    public bool IsHeld => isHeld;
+    public bool CanBeHeld => !isHeld;
 
-    public bool IsHeld
-    {
-        get
-        {
-            return isHeld;
-        }
-    }
-
-    public int MaximumQuantity
-    {
-        get
-        {
-            return Layout != null ? Layout.Capacity : 0;
-        }
-    }
+    public int MaximumQuantity =>
+        Layout != null ? Layout.Capacity : 0;
 
     private void Awake()
     {
-        if (TheRB == null)
-        {
-            TheRB = GetComponent<Rigidbody>();
-        }
-
-        if (BoxCollider == null)
-        {
-            BoxCollider = GetComponent<Collider>();
-        }
+        CacheComponents();
 
         if (Layout == null && Product != null)
         {
@@ -106,53 +97,183 @@ public class StockBoxController : MonoBehaviour
         UpdateLabels();
     }
 
-    public void Pickup(Transform holdPoint)
+    protected override int GetDefaultInteractionPriority()
     {
-        if (holdPoint == null)
+        return 30;
+    }
+
+    protected override bool SupportsInteraction(
+        InteractionType interactionType)
+    {
+        return interactionType == InteractionType.Primary;
+    }
+
+    protected override bool CanInteractInternal(
+        InteractionContext context)
+    {
+        return CanBeHeld &&
+               !context.Player.IsHoldingAnything;
+    }
+
+    protected override void OnInteract(
+        InteractionContext context)
+    {
+        context.Player.TryHold(this);
+    }
+
+    protected override string
+        GetDefaultInteractionPrompt(
+            InteractionType interactionType)
+    {
+        return interactionType ==
+               InteractionType.Primary
+            ? "[Left Click] Pick Up"
+            : string.Empty;
+    }
+
+    public Transform GetHoldPoint(
+        PlayerInteractionController player)
+    {
+        return player != null ? player.BoxHoldPoint : null;
+    }
+
+    public bool Pickup(
+        PlayerInteractionController player,
+        Transform holdPoint)
+    {
+        if (!CanBeHeld || holdPoint == null)
+        {
+            return false;
+        }
+
+        isHeld = true;
+        nextStockTime = 0f;
+
+        transform.SetParent(holdPoint,false);
+        transform.localPosition = Vector3.zero;
+        transform.localRotation = Quaternion.identity;
+
+        SetPhysicsHeld(true);
+
+        return true;
+    }
+
+    public void HandleHeldUpdate(
+        PlayerInteractionController player,
+        Ray interactionRay)
+    {
+        if (!isHeld || player == null)
         {
             return;
         }
 
-        isHeld = true;
-
-        transform.SetParent(holdPoint,true);
-        transform.localPosition = Vector3.zero;
-        transform.localRotation = Quaternion.identity;
-
-        if (TheRB != null)
+        if (Keyboard.current != null &&
+            Keyboard.current.eKey.wasPressedThisFrame)
         {
-            if (!TheRB.isKinematic)
-            {
-                TheRB.linearVelocity = Vector3.zero;
-                TheRB.angularVelocity = Vector3.zero;
-            }
-
-            TheRB.isKinematic = true;
+            ToggleOpen();
         }
 
-        if (BoxCollider != null)
+        if (Mouse.current == null)
         {
-            BoxCollider.enabled = false;
+            return;
+        }
+
+        if (Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            Throw(player);
+            return;
+        }
+
+        if (!isOpen ||
+            !Mouse.current.leftButton.isPressed ||
+            Time.time < nextStockTime)
+        {
+            return;
+        }
+
+        if (!player.TryGetComponentInRay(
+                interactionRay,
+                out ShelfSpaceController shelf,
+                out _))
+        {
+            return;
+        }
+
+        if (TryStockShelf(shelf))
+        {
+            nextStockTime =
+                Time.time + StockingInterval;
+        }
+    }
+
+    public string GetHeldPrompt(
+        PlayerInteractionController player,
+        Ray interactionRay)
+    {
+        string openClosePrompt =
+            isOpen ? ClosePrompt : OpenPrompt;
+
+        bool canStockShelf = false;
+
+        if (isOpen &&
+            player != null &&
+            Quantity > 0 &&
+            player.TryGetComponentInRay(
+                interactionRay,
+                out ShelfSpaceController shelf,
+                out _))
+        {
+            canStockShelf =
+                shelf.CanAcceptProduct(Product);
+        }
+
+        if (canStockShelf)
+        {
+            return openClosePrompt +
+                   "\n" +
+                   StockShelfPrompt +
+                   "\n" +
+                   ThrowPrompt;
+        }
+
+        return openClosePrompt +
+               "\n" +
+               ThrowPrompt;
+    }
+
+    private void Throw(PlayerInteractionController player)
+    {
+        Release();
+
+        if (TheRB != null && player.TheCamera != null)
+        {
+            TheRB.AddForce(
+                player.TheCamera.transform.forward * ThrowForce,
+                ForceMode.Impulse);
+        }
+
+        player.ClearHeldItem(this);
+    }
+
+    public void ForceRelease(
+        PlayerInteractionController player)
+    {
+        Release();
+
+        if (player != null)
+        {
+            player.ClearHeldItem(this);
         }
     }
 
     public void Release()
     {
         isHeld = false;
+        nextStockTime = 0f;
+
         SetOpen(false);
         transform.SetParent(null,true);
-
-        if (TheRB != null)
-        {
-            TheRB.isKinematic = false;
-            TheRB.linearVelocity = Vector3.zero;
-            TheRB.angularVelocity = Vector3.zero;
-        }
-
-        if (BoxCollider != null)
-        {
-            BoxCollider.enabled = true;
-        }
+        SetPhysicsHeld(false);
     }
 
     public void ToggleOpen()
@@ -184,7 +305,8 @@ public class StockBoxController : MonoBehaviour
 
         if (isOpen && ShowRuntimeContents)
         {
-            runtimePreviewRoutine = StartCoroutine(RevealRuntimeContents());
+            runtimePreviewRoutine =
+                StartCoroutine(RevealRuntimeContents());
         }
         else
         {
@@ -192,14 +314,19 @@ public class StockBoxController : MonoBehaviour
         }
     }
 
-    public bool TryStockShelf(ShelfSpaceController shelf)
+    public bool TryStockShelf(
+        ShelfSpaceController shelf)
     {
         if (!isOpen)
         {
             return false;
         }
 
-        if (shelf == null || Product == null || Product.StockPrefab == null || Layout == null || Quantity <= 0)
+        if (shelf == null ||
+            Product == null ||
+            Product.StockPrefab == null ||
+            Layout == null ||
+            Quantity <= 0)
         {
             return false;
         }
@@ -211,20 +338,36 @@ public class StockBoxController : MonoBehaviour
             return false;
         }
 
-            int sourceIndex = Mathf.Clamp(Quantity - 1,0,Layout.Capacity - 1);
+        int sourceIndex = Mathf.Clamp(
+            Quantity - 1,
+            0,
+            Layout.Capacity - 1);
 
-            StockObject newStock = Instantiate(Product.StockPrefab,contentOrigin);
-            newStock.Info = Product;
-            newStock.transform.localPosition = Layout.GetLocalPosition(sourceIndex);
-            newStock.transform.localRotation = Quaternion.Euler(Layout.LocalRotation);
+        StockObject newStock =
+            Instantiate(Product.StockPrefab,contentOrigin);
 
-            Vector3 startingWorldPosition = newStock.transform.position;
-            Quaternion startingWorldRotation = newStock.transform.rotation;
+        newStock.Info = Product;
+        newStock.transform.localPosition =
+            Layout.GetLocalPosition(sourceIndex);
 
-            newStock.transform.SetParent(null,true);
-            newStock.transform.SetPositionAndRotation(startingWorldPosition,startingWorldRotation);
+        newStock.transform.localRotation =
+            Quaternion.Euler(Layout.LocalRotation);
 
-            bool wasPlaced = shelf.PlaceStock(newStock);
+        // Keep this world-space handoff. It preserves the
+        // working box-to-shelf stocking animation.
+        Vector3 startingWorldPosition =
+            newStock.transform.position;
+
+        Quaternion startingWorldRotation =
+            newStock.transform.rotation;
+
+        newStock.transform.SetParent(null,true);
+
+        newStock.transform.SetPositionAndRotation(
+            startingWorldPosition,
+            startingWorldRotation);
+
+        bool wasPlaced = shelf.PlaceStock(newStock);
 
         if (!wasPlaced)
         {
@@ -246,8 +389,15 @@ public class StockBoxController : MonoBehaviour
 
     private IEnumerator AnimateFlaps()
     {
-        Quaternion leftTarget = Quaternion.Euler(isOpen ? LeftFlapOpenRotation : LeftFlapClosedRotation);
-        Quaternion rightTarget = Quaternion.Euler(isOpen ? RightFlapOpenRotation : RightFlapClosedRotation);
+        Quaternion leftTarget = Quaternion.Euler(
+            isOpen
+                ? LeftFlapOpenRotation
+                : LeftFlapClosedRotation);
+
+        Quaternion rightTarget = Quaternion.Euler(
+            isOpen
+                ? RightFlapOpenRotation
+                : RightFlapClosedRotation);
 
         while (true)
         {
@@ -256,14 +406,32 @@ public class StockBoxController : MonoBehaviour
 
             if (LeftFlapPivot != null)
             {
-                LeftFlapPivot.localRotation = Quaternion.Slerp(LeftFlapPivot.localRotation,leftTarget,FlapAnimationSpeed * Time.deltaTime);
-                leftFinished = Quaternion.Angle(LeftFlapPivot.localRotation,leftTarget) < 0.2f;
+                LeftFlapPivot.localRotation =
+                    Quaternion.Slerp(
+                        LeftFlapPivot.localRotation,
+                        leftTarget,
+                        FlapAnimationSpeed *
+                        Time.deltaTime);
+
+                leftFinished =
+                    Quaternion.Angle(
+                        LeftFlapPivot.localRotation,
+                        leftTarget) < 0.2f;
             }
 
             if (RightFlapPivot != null)
             {
-                RightFlapPivot.localRotation = Quaternion.Slerp(RightFlapPivot.localRotation,rightTarget,FlapAnimationSpeed * Time.deltaTime);
-                rightFinished = Quaternion.Angle(RightFlapPivot.localRotation,rightTarget) < 0.2f;
+                RightFlapPivot.localRotation =
+                    Quaternion.Slerp(
+                        RightFlapPivot.localRotation,
+                        rightTarget,
+                        FlapAnimationSpeed *
+                        Time.deltaTime);
+
+                rightFinished =
+                    Quaternion.Angle(
+                        RightFlapPivot.localRotation,
+                        rightTarget) < 0.2f;
             }
 
             if (leftFinished && rightFinished)
@@ -289,7 +457,8 @@ public class StockBoxController : MonoBehaviour
 
     private IEnumerator RevealRuntimeContents()
     {
-        yield return new WaitForSeconds(RuntimeContentsRevealDelay);
+        yield return new WaitForSeconds(
+            RuntimeContentsRevealDelay);
 
         if (isOpen && ShowRuntimeContents)
         {
@@ -308,23 +477,43 @@ public class StockBoxController : MonoBehaviour
             return;
         }
 
-        if (Layout == null || Product == null || Product.StockPrefab == null || Quantity <= 0)
+        if (Layout == null ||
+            Product == null ||
+            Product.StockPrefab == null ||
+            Quantity <= 0)
         {
             return;
         }
 
         Transform parent = GetContentOrigin();
-        runtimePreviewRoot = new GameObject("_RUNTIME_BOX_CONTENTS").transform;
+
+        runtimePreviewRoot =
+            new GameObject(
+                "_RUNTIME_BOX_CONTENTS").transform;
+
         runtimePreviewRoot.SetParent(parent,false);
 
-        int previewCount = Mathf.Min(Quantity,Layout.MaximumRuntimePreviewObjects,Layout.Capacity);
+        int previewCount = Mathf.Min(
+            Quantity,
+            Layout.MaximumRuntimePreviewObjects,
+            Layout.Capacity);
 
         for (int i = 0; i < previewCount; i++)
         {
-            StockObject previewObject = Instantiate(Product.StockPrefab,runtimePreviewRoot);
+            StockObject previewObject =
+                Instantiate(
+                    Product.StockPrefab,
+                    runtimePreviewRoot);
+
             previewObject.Info = Product;
-            previewObject.transform.localPosition = Layout.GetLocalPosition(i);
-            previewObject.transform.localRotation = Quaternion.Euler(Layout.LocalRotation);
+
+            previewObject.transform.localPosition =
+                Layout.GetLocalPosition(i);
+
+            previewObject.transform.localRotation =
+                Quaternion.Euler(
+                    Layout.LocalRotation);
+
             previewObject.SetAsBoxPreview();
 
             runtimePreviewObjects.Add(previewObject);
@@ -333,11 +522,14 @@ public class StockBoxController : MonoBehaviour
 
     private void ClearRuntimeContents()
     {
-        for (int i = runtimePreviewObjects.Count - 1; i >= 0; i--)
+        for (int i = runtimePreviewObjects.Count - 1;
+             i >= 0;
+             i--)
         {
             if (runtimePreviewObjects[i] != null)
             {
-                Destroy(runtimePreviewObjects[i].gameObject);
+                Destroy(
+                    runtimePreviewObjects[i].gameObject);
             }
         }
 
@@ -352,24 +544,25 @@ public class StockBoxController : MonoBehaviour
 
     private Transform GetContentOrigin()
     {
-        if (ContentOrigin != null)
-        {
-            return ContentOrigin;
-        }
-
-        return transform;
+        return ContentOrigin != null
+            ? ContentOrigin
+            : transform;
     }
 
     private void UpdateLabels()
     {
         if (ProductNameLabel != null)
         {
-            ProductNameLabel.text = Product != null ? Product.ProductName : "Empty";
+            ProductNameLabel.text =
+                Product != null
+                    ? Product.ProductName
+                    : "Empty";
         }
 
         if (QuantityLabel != null)
         {
-            QuantityLabel.text = Quantity + " / " + MaximumQuantity;
+            QuantityLabel.text =
+                Quantity + " / " + MaximumQuantity;
         }
     }
 
@@ -377,12 +570,20 @@ public class StockBoxController : MonoBehaviour
     {
         if (LeftFlapPivot != null)
         {
-            LeftFlapPivot.localRotation = Quaternion.Euler(open ? LeftFlapOpenRotation : LeftFlapClosedRotation);
+            LeftFlapPivot.localRotation =
+                Quaternion.Euler(
+                    open
+                        ? LeftFlapOpenRotation
+                        : LeftFlapClosedRotation);
         }
 
         if (RightFlapPivot != null)
         {
-            RightFlapPivot.localRotation = Quaternion.Euler(open ? RightFlapOpenRotation : RightFlapClosedRotation);
+            RightFlapPivot.localRotation =
+                Quaternion.Euler(
+                    open
+                        ? RightFlapOpenRotation
+                        : RightFlapClosedRotation);
         }
     }
 
@@ -394,18 +595,68 @@ public class StockBoxController : MonoBehaviour
             return;
         }
 
-        Quantity = Mathf.Clamp(Quantity,0,Layout.Capacity);
+        Quantity = Mathf.Clamp(
+            Quantity,
+            0,
+            Layout.Capacity);
     }
 
-    private void OnValidate()
+    private void CacheComponents()
     {
+        if (TheRB == null)
+        {
+            TheRB = GetComponent<Rigidbody>();
+        }
+
+        if (BoxCollider == null)
+        {
+            BoxCollider = GetComponent<Collider>();
+        }
+    }
+
+    private void SetPhysicsHeld(bool held)
+    {
+        if (TheRB != null)
+        {
+            if (!TheRB.isKinematic)
+            {
+                TheRB.linearVelocity = Vector3.zero;
+                TheRB.angularVelocity = Vector3.zero;
+            }
+
+            TheRB.isKinematic = held;
+
+            if (!held)
+            {
+                TheRB.linearVelocity = Vector3.zero;
+                TheRB.angularVelocity = Vector3.zero;
+            }
+        }
+
+        if (BoxCollider != null)
+        {
+            BoxCollider.enabled = !held;
+        }
+    }
+
+    protected override void OnValidate()
+    {
+        base.OnValidate();
+
         if (Layout == null && Product != null)
         {
             Layout = Product.DefaultBoxLayout;
         }
 
-        FlapAnimationSpeed = Mathf.Max(0.01f,FlapAnimationSpeed);
-        RuntimeContentsRevealDelay = Mathf.Max(0f,RuntimeContentsRevealDelay);
+        FlapAnimationSpeed =
+            Mathf.Max(0.01f,FlapAnimationSpeed);
+
+        RuntimeContentsRevealDelay =
+            Mathf.Max(0f,RuntimeContentsRevealDelay);
+
+        ThrowForce = Mathf.Max(0f,ThrowForce);
+        StockingInterval =
+            Mathf.Max(0.01f,StockingInterval);
 
         ClampQuantity();
     }
@@ -418,7 +669,8 @@ public class StockBoxController : MonoBehaviour
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        if (!ShowEditorPreview || !ShowLayoutGizmos)
+        if (!ShowEditorPreview ||
+            !ShowLayoutGizmos)
         {
             return;
         }
@@ -435,13 +687,20 @@ public class StockBoxController : MonoBehaviour
             return;
         }
 
-        Transform origin = ContentOrigin != null ? ContentOrigin : transform;
+        Transform origin =
+            ContentOrigin != null
+                ? ContentOrigin
+                : transform;
 
         Gizmos.matrix = origin.localToWorldMatrix;
 
-        for (int i = 0; i < activeLayout.Capacity; i++)
+        for (int i = 0;
+             i < activeLayout.Capacity;
+             i++)
         {
-            Gizmos.DrawWireCube(activeLayout.GetLocalPosition(i),new Vector3(0.06f,0.06f,0.06f));
+            Gizmos.DrawWireCube(
+                activeLayout.GetLocalPosition(i),
+                new Vector3(0.06f,0.06f,0.06f));
         }
 
         Gizmos.matrix = Matrix4x4.identity;

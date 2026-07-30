@@ -1123,7 +1123,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &211951052
 Transform:
   m_ObjectHideFlags: 0
@@ -4566,8 +4566,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1054972370}
-  - component: {fileID: 1054972371}
   - component: {fileID: 1054972372}
+  - component: {fileID: 1054972371}
+  - component: {fileID: 1054972373}
+  - component: {fileID: 1054972374}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -4614,24 +4616,6 @@ MonoBehaviour:
   TheCamera: {fileID: 330585545}
   MinLookAngle: -80
   MaxLookAngle: 80
-  WhatIsStock:
-    serializedVersion: 2
-    m_Bits: 64
-  WhatIsShelf:
-    serializedVersion: 2
-    m_Bits: 128
-  WhatIsStockBox:
-    serializedVersion: 2
-    m_Bits: 256
-  WhatIsFurniture:
-    serializedVersion: 2
-    m_Bits: 1024
-  InteractionRange: 5
-  HoldPoint: {fileID: 1404994475}
-  ThrowForce: 10
-  BoxHoldPoint: {fileID: 1559243736}
-  BoxThrowForce: 5
-  StockingInterval: 0.2
 --- !u!143 &1054972372
 CharacterController:
   m_ObjectHideFlags: 0
@@ -4657,6 +4641,53 @@ CharacterController:
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 1, z: 0}
+--- !u!114 &1054972373
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1054972369}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19651f44e7d776343b9592cb4e422157, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInteractionController
+  TheCamera: {fileID: 330585545}
+  InteractionMask:
+    serializedVersion: 2
+    m_Bits: 1472
+  InteractionRange: 3
+  HoldPoint: {fileID: 1404994475}
+  BoxHoldPoint: {fileID: 1559243736}
+  ShowInteractionDebug: 1
+--- !u!114 &1054972374
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1054972369}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f5b1a1e12587e4aa2eb2917f1b3308, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptDisplay
+  InteractionController: {fileID: 1054972373}
+  Anchor: 3
+  Offset: {x: 30, y: 0}
+  Width: 520
+  Height: 220
+  FontSize: 24
+  TextColor: {r: 1, g: 0.78, b: 0.15, a: 1}
+  FontStyle: 1
+  TextAlignment: 3
+  RichText: 1
+  WordWrap: 1
+  ShowBackground: 0
+  BackgroundColor: {r: 0, g: 0, b: 0, a: 0.45}
+  BackgroundPadding: {x: 14, y: 10}
+  HideWhenEmpty: 1
 --- !u!1001 &1056197844
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7617,6 +7648,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3625017169168205208, guid: 5555f9538fc5b7c469be0671f39f89da, type: 3}
+      propertyPath: interactionPriority
+      value: 20
+      objectReference: {fileID: 0}
     - target: {fileID: 3625017169168205208, guid: 5555f9538fc5b7c469be0671f39f89da, type: 3}
       propertyPath: ValidPlacementMaterial
       value: 

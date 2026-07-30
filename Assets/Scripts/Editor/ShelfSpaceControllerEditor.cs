@@ -90,6 +90,71 @@ public class ShelfSpaceControllerEditor : Editor
             EditorGUILayout.HelpBox("The stock category determines which placement-point group is used.",MessageType.Info);
         }
 
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField(
+            "Interaction",
+            EditorStyles.boldLabel);
+
+        DrawBaseInteractionProperties();
+
         serializedObject.ApplyModifiedProperties();
+    }
+
+    private void DrawBaseInteractionProperties()
+    {
+        SerializedProperty interactionEnabled =
+            serializedObject.FindProperty(
+                "interactionEnabled");
+
+        SerializedProperty overridePriority =
+            serializedObject.FindProperty(
+                "overrideInteractionPriority");
+
+        SerializedProperty priority =
+            serializedObject.FindProperty(
+                "interactionPriority");
+
+        SerializedProperty primaryPrompt =
+            serializedObject.FindProperty(
+                "primaryPrompt");
+
+        SerializedProperty secondaryPrompt =
+            serializedObject.FindProperty(
+                "secondaryPrompt");
+
+        SerializedProperty usePrompt =
+            serializedObject.FindProperty(
+                "usePrompt");
+
+        SerializedProperty movePrompt =
+            serializedObject.FindProperty(
+                "movePrompt");
+
+        EditorGUILayout.PropertyField(
+            interactionEnabled);
+
+        EditorGUILayout.PropertyField(
+            overridePriority);
+
+        if (overridePriority.boolValue)
+        {
+            EditorGUILayout.PropertyField(priority);
+        }
+
+        EditorGUILayout.HelpBox(
+            "Leave prompt fields empty to use the built-in defaults.",
+            MessageType.Info);
+
+        EditorGUILayout.PropertyField(
+            primaryPrompt);
+
+        EditorGUILayout.PropertyField(
+            secondaryPrompt);
+
+        EditorGUILayout.PropertyField(
+            usePrompt);
+
+        EditorGUILayout.PropertyField(
+            movePrompt);
     }
 }

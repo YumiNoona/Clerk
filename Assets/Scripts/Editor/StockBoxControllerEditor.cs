@@ -25,6 +25,13 @@ public class StockBoxControllerEditor : Editor
     private SerializedProperty contentOrigin;
     private SerializedProperty runtimeContentsRevealDelay;
 
+    private SerializedProperty throwForce;
+    private SerializedProperty stockingInterval;
+    private SerializedProperty openPrompt;
+    private SerializedProperty closePrompt;
+    private SerializedProperty throwPrompt;
+    private SerializedProperty stockShelfPrompt;
+
     private SerializedProperty productNameLabel;
     private SerializedProperty quantityLabel;
 
@@ -37,29 +44,86 @@ public class StockBoxControllerEditor : Editor
         quantity = serializedObject.FindProperty("Quantity");
 
         theRB = serializedObject.FindProperty("TheRB");
-        boxCollider = serializedObject.FindProperty("BoxCollider");
+        boxCollider =
+            serializedObject.FindProperty("BoxCollider");
 
-        leftFlapPivot = serializedObject.FindProperty("LeftFlapPivot");
-        rightFlapPivot = serializedObject.FindProperty("RightFlapPivot");
-        leftFlapClosedRotation = serializedObject.FindProperty("LeftFlapClosedRotation");
-        leftFlapOpenRotation = serializedObject.FindProperty("LeftFlapOpenRotation");
-        rightFlapClosedRotation = serializedObject.FindProperty("RightFlapClosedRotation");
-        rightFlapOpenRotation = serializedObject.FindProperty("RightFlapOpenRotation");
-        flapAnimationSpeed = serializedObject.FindProperty("FlapAnimationSpeed");
+        leftFlapPivot =
+            serializedObject.FindProperty("LeftFlapPivot");
 
-        showRuntimeContents = serializedObject.FindProperty("ShowRuntimeContents");
-        contentOrigin = serializedObject.FindProperty("ContentOrigin");
-        runtimeContentsRevealDelay = serializedObject.FindProperty("RuntimeContentsRevealDelay");
+        rightFlapPivot =
+            serializedObject.FindProperty("RightFlapPivot");
 
-        productNameLabel = serializedObject.FindProperty("ProductNameLabel");
-        quantityLabel = serializedObject.FindProperty("QuantityLabel");
+        leftFlapClosedRotation =
+            serializedObject.FindProperty(
+                "LeftFlapClosedRotation");
+
+        leftFlapOpenRotation =
+            serializedObject.FindProperty(
+                "LeftFlapOpenRotation");
+
+        rightFlapClosedRotation =
+            serializedObject.FindProperty(
+                "RightFlapClosedRotation");
+
+        rightFlapOpenRotation =
+            serializedObject.FindProperty(
+                "RightFlapOpenRotation");
+
+        flapAnimationSpeed =
+            serializedObject.FindProperty(
+                "FlapAnimationSpeed");
+
+        showRuntimeContents =
+            serializedObject.FindProperty(
+                "ShowRuntimeContents");
+
+        contentOrigin =
+            serializedObject.FindProperty("ContentOrigin");
+
+        runtimeContentsRevealDelay =
+            serializedObject.FindProperty(
+                "RuntimeContentsRevealDelay");
+
+        throwForce =
+            serializedObject.FindProperty("ThrowForce");
+
+        stockingInterval =
+            serializedObject.FindProperty(
+                "StockingInterval");
+
+        openPrompt =
+            serializedObject.FindProperty(
+                "OpenPrompt");
+
+        closePrompt =
+            serializedObject.FindProperty(
+                "ClosePrompt");
+
+        throwPrompt =
+            serializedObject.FindProperty(
+                "ThrowPrompt");
+
+        stockShelfPrompt =
+            serializedObject.FindProperty(
+                "StockShelfPrompt");
+
+        productNameLabel =
+            serializedObject.FindProperty(
+                "ProductNameLabel");
+
+        quantityLabel =
+            serializedObject.FindProperty(
+                "QuantityLabel");
     }
 
     public override void OnInspectorGUI()
     {
         serializedObject.Update();
 
-        EditorGUILayout.LabelField("Product",EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(
+            "Product",
+            EditorStyles.boldLabel);
+
         EditorGUILayout.PropertyField(product);
         EditorGUILayout.PropertyField(layout);
 
@@ -67,85 +131,161 @@ public class StockBoxControllerEditor : Editor
 
         EditorGUILayout.Space();
 
-        EditorGUILayout.LabelField("Quantity",EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(
+            "Quantity",
+            EditorStyles.boldLabel);
+
         EditorGUILayout.PropertyField(quantity);
 
         if (activeLayout != null)
         {
-            EditorGUILayout.HelpBox("Box Capacity: " + activeLayout.Capacity,MessageType.Info);
+            EditorGUILayout.HelpBox(
+                "Box Capacity: " +
+                activeLayout.Capacity,
+                MessageType.Info);
         }
         else
         {
-            EditorGUILayout.HelpBox("Assign a BoxLayout directly or through the StockInfo asset.",MessageType.Warning);
+            EditorGUILayout.HelpBox(
+                "Assign a BoxLayout directly or through the StockInfo asset.",
+                MessageType.Warning);
         }
 
         EditorGUILayout.Space();
 
-        EditorGUILayout.LabelField("Components",EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(
+            "Components",
+            EditorStyles.boldLabel);
+
         EditorGUILayout.PropertyField(theRB);
         EditorGUILayout.PropertyField(boxCollider);
 
         EditorGUILayout.Space();
 
-        EditorGUILayout.LabelField("Flaps",EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(
+            "Flaps",
+            EditorStyles.boldLabel);
+
         EditorGUILayout.PropertyField(leftFlapPivot);
         EditorGUILayout.PropertyField(rightFlapPivot);
-        EditorGUILayout.PropertyField(leftFlapClosedRotation);
-        EditorGUILayout.PropertyField(leftFlapOpenRotation);
-        EditorGUILayout.PropertyField(rightFlapClosedRotation);
-        EditorGUILayout.PropertyField(rightFlapOpenRotation);
-        EditorGUILayout.PropertyField(flapAnimationSpeed);
+        EditorGUILayout.PropertyField(
+            leftFlapClosedRotation);
+
+        EditorGUILayout.PropertyField(
+            leftFlapOpenRotation);
+
+        EditorGUILayout.PropertyField(
+            rightFlapClosedRotation);
+
+        EditorGUILayout.PropertyField(
+            rightFlapOpenRotation);
+
+        EditorGUILayout.PropertyField(
+            flapAnimationSpeed);
 
         EditorGUILayout.Space();
 
         DrawRuntimeContentsSection();
+
+        EditorGUILayout.Space();
+
+        EditorGUILayout.LabelField(
+            "Held Interaction",
+            EditorStyles.boldLabel);
+
+        EditorGUILayout.PropertyField(throwForce);
+        EditorGUILayout.PropertyField(
+            stockingInterval);
+
+        EditorGUILayout.PropertyField(openPrompt);
+        EditorGUILayout.PropertyField(closePrompt);
+        EditorGUILayout.PropertyField(throwPrompt);
+        EditorGUILayout.PropertyField(
+            stockShelfPrompt);
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField(
+            "World Interaction Prompt",
+            EditorStyles.boldLabel);
+
+        DrawBaseInteractionProperties();
+
         DrawEditorPreviewSection();
 
         EditorGUILayout.Space();
 
-        EditorGUILayout.LabelField("Label",EditorStyles.boldLabel);
-        EditorGUILayout.PropertyField(productNameLabel);
-        EditorGUILayout.PropertyField(quantityLabel);
+        EditorGUILayout.LabelField(
+            "Label",
+            EditorStyles.boldLabel);
+
+        EditorGUILayout.PropertyField(
+            productNameLabel);
+
+        EditorGUILayout.PropertyField(
+            quantityLabel);
 
         serializedObject.ApplyModifiedProperties();
     }
 
     private void DrawRuntimeContentsSection()
     {
-        EditorGUILayout.LabelField("Runtime Contents",EditorStyles.boldLabel);
-        EditorGUILayout.PropertyField(showRuntimeContents,new GUIContent("Show Runtime Contents"));
+        EditorGUILayout.LabelField(
+            "Runtime Contents",
+            EditorStyles.boldLabel);
+
+        EditorGUILayout.PropertyField(
+            showRuntimeContents,
+            new GUIContent("Show Runtime Contents"));
 
         if (showRuntimeContents.boolValue)
         {
             EditorGUI.indentLevel++;
 
             EditorGUILayout.PropertyField(contentOrigin);
-            EditorGUILayout.PropertyField(runtimeContentsRevealDelay);
+
+            EditorGUILayout.PropertyField(
+                runtimeContentsRevealDelay);
 
             BoxLayout activeLayout = GetActiveLayout();
 
             if (activeLayout != null)
             {
-                EditorGUILayout.HelpBox("Players will see up to " + activeLayout.MaximumRuntimePreviewObjects + " visual objects when the box is open.",MessageType.Info);
+                EditorGUILayout.HelpBox(
+                    "Players will see up to " +
+                    activeLayout
+                        .MaximumRuntimePreviewObjects +
+                    " visual objects when the box is open.",
+                    MessageType.Info);
             }
 
             EditorGUI.indentLevel--;
         }
         else
         {
-            EditorGUILayout.HelpBox("No visual product objects will be generated during gameplay. The box can still stock shelves normally.",MessageType.Info);
+            EditorGUILayout.HelpBox(
+                "No visual product objects will be generated during gameplay. The box can still stock shelves normally.",
+                MessageType.Info);
         }
     }
 
     private void DrawEditorPreviewSection()
     {
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Editor Layout Preview",EditorStyles.boldLabel);
 
-        bool previousShowEditorPreview = box.ShowEditorPreview;
-        box.ShowEditorPreview = EditorGUILayout.Toggle("Show Editor Preview",box.ShowEditorPreview);
+        EditorGUILayout.LabelField(
+            "Editor Layout Preview",
+            EditorStyles.boldLabel);
 
-        if (previousShowEditorPreview != box.ShowEditorPreview)
+        bool previousShowEditorPreview =
+            box.ShowEditorPreview;
+
+        box.ShowEditorPreview =
+            EditorGUILayout.Toggle(
+                "Show Editor Preview",
+                box.ShowEditorPreview);
+
+        if (previousShowEditorPreview !=
+            box.ShowEditorPreview)
         {
             EditorUtility.SetDirty(box);
 
@@ -159,26 +299,35 @@ public class StockBoxControllerEditor : Editor
 
         if (!box.ShowEditorPreview)
         {
-            EditorGUILayout.HelpBox("Editor preview tools are hidden. Runtime box behavior is unaffected.",MessageType.Info);
+            EditorGUILayout.HelpBox(
+                "Editor preview tools are hidden. Runtime box behavior is unaffected.",
+                MessageType.Info);
+
             return;
         }
 
         EditorGUI.indentLevel++;
 
-        box.ShowLayoutGizmos = EditorGUILayout.Toggle("Show Layout Gizmos",box.ShowLayoutGizmos);
+        box.ShowLayoutGizmos =
+            EditorGUILayout.Toggle(
+                "Show Layout Gizmos",
+                box.ShowLayoutGizmos);
 
-        if (GUILayout.Button("Generate Layout Preview"))
+        if (GUILayout.Button(
+                "Generate Layout Preview"))
         {
             GenerateEditorPreview();
         }
 
-        if (GUILayout.Button("Refresh Layout Preview"))
+        if (GUILayout.Button(
+                "Refresh Layout Preview"))
         {
             ClearEditorPreview();
             GenerateEditorPreview();
         }
 
-        if (GUILayout.Button("Clear Layout Preview"))
+        if (GUILayout.Button(
+                "Clear Layout Preview"))
         {
             ClearEditorPreview();
         }
@@ -203,12 +352,9 @@ public class StockBoxControllerEditor : Editor
 
     private Transform GetContentOrigin()
     {
-        if (box.ContentOrigin != null)
-        {
-            return box.ContentOrigin;
-        }
-
-        return box.transform;
+        return box.ContentOrigin != null
+            ? box.ContentOrigin
+            : box.transform;
     }
 
     private void GenerateEditorPreview()
@@ -219,39 +365,63 @@ public class StockBoxControllerEditor : Editor
 
         if (activeLayout == null)
         {
-            Debug.LogWarning("No BoxLayout is assigned.",box);
+            Debug.LogWarning(
+                "No BoxLayout is assigned.",
+                box);
+
             return;
         }
 
-        if (box.Product == null || box.Product.StockPrefab == null)
+        if (box.Product == null ||
+            box.Product.StockPrefab == null)
         {
-            Debug.LogWarning("The box Product or StockPrefab is missing.",box);
+            Debug.LogWarning(
+                "The box Product or StockPrefab is missing.",
+                box);
+
             return;
         }
 
         Transform parent = GetContentOrigin();
 
-        GameObject previewRootObject = new GameObject("_EDITOR_LAYOUT_PREVIEW");
-        Undo.RegisterCreatedObjectUndo(previewRootObject,"Generate box layout preview");
+        GameObject previewRootObject =
+            new GameObject(
+                "_EDITOR_LAYOUT_PREVIEW");
 
-        box.EditorPreviewRoot = previewRootObject.transform;
+        Undo.RegisterCreatedObjectUndo(
+            previewRootObject,
+            "Generate box layout preview");
+
+        box.EditorPreviewRoot =
+            previewRootObject.transform;
+
         box.EditorPreviewRoot.SetParent(parent,false);
 
         int count = activeLayout.Capacity;
 
         for (int i = 0; i < count; i++)
         {
-            GameObject previewObject = (GameObject)PrefabUtility.InstantiatePrefab(box.Product.StockPrefab.gameObject,box.EditorPreviewRoot);
+            GameObject previewObject =
+                (GameObject)PrefabUtility
+                    .InstantiatePrefab(
+                        box.Product
+                            .StockPrefab.gameObject,
+                        box.EditorPreviewRoot);
 
             if (previewObject == null)
             {
                 continue;
             }
 
-            previewObject.transform.localPosition = activeLayout.GetLocalPosition(i);
-            previewObject.transform.localRotation = Quaternion.Euler(activeLayout.LocalRotation);
+            previewObject.transform.localPosition =
+                activeLayout.GetLocalPosition(i);
 
-            DisableEditorPreviewComponents(previewObject);
+            previewObject.transform.localRotation =
+                Quaternion.Euler(
+                    activeLayout.LocalRotation);
+
+            DisableEditorPreviewComponents(
+                previewObject);
         }
 
         EditorUtility.SetDirty(box);
@@ -261,47 +431,69 @@ public class StockBoxControllerEditor : Editor
 
     private void ClearEditorPreview()
     {
-        Transform existingPreview = box.EditorPreviewRoot;
+        Transform existingPreview =
+            box.EditorPreviewRoot;
 
         if (existingPreview == null)
         {
-            existingPreview = GetContentOrigin().Find("_EDITOR_LAYOUT_PREVIEW");
+            existingPreview =
+                GetContentOrigin().Find(
+                    "_EDITOR_LAYOUT_PREVIEW");
         }
 
         if (existingPreview != null)
         {
-            Undo.DestroyObjectImmediate(existingPreview.gameObject);
+            Undo.DestroyObjectImmediate(
+                existingPreview.gameObject);
         }
 
         box.EditorPreviewRoot = null;
+
         EditorUtility.SetDirty(box);
         SceneView.RepaintAll();
     }
 
-    private void DisableEditorPreviewComponents(GameObject previewObject)
+    private void DisableEditorPreviewComponents(
+        GameObject previewObject)
     {
-        Rigidbody[] rigidbodies = previewObject.GetComponentsInChildren<Rigidbody>(true);
+        Rigidbody[] rigidbodies =
+            previewObject
+                .GetComponentsInChildren<Rigidbody>(
+                    true);
 
-        for (int i = 0; i < rigidbodies.Length; i++)
+        for (int i = 0;
+             i < rigidbodies.Length;
+             i++)
         {
             rigidbodies[i].isKinematic = true;
         }
 
-        Collider[] colliders = previewObject.GetComponentsInChildren<Collider>(true);
+        Collider[] colliders =
+            previewObject
+                .GetComponentsInChildren<Collider>(
+                    true);
 
-        for (int i = 0; i < colliders.Length; i++)
+        for (int i = 0;
+             i < colliders.Length;
+             i++)
         {
             colliders[i].enabled = false;
         }
 
-        StockObject[] stockObjects = previewObject.GetComponentsInChildren<StockObject>(true);
+        StockObject[] stockObjects =
+            previewObject
+                .GetComponentsInChildren<StockObject>(
+                    true);
 
-        for (int i = 0; i < stockObjects.Length; i++)
+        for (int i = 0;
+             i < stockObjects.Length;
+             i++)
         {
             stockObjects[i].enabled = false;
         }
 
-        previewObject.hideFlags = HideFlags.DontSaveInBuild;
+        previewObject.hideFlags =
+            HideFlags.DontSaveInBuild;
     }
 
     private void OnSceneGUI()
@@ -319,20 +511,88 @@ public class StockBoxControllerEditor : Editor
         }
 
         Transform origin = GetContentOrigin();
-        Vector3 worldPosition = origin.TransformPoint(activeLayout.FirstLocalPosition);
+
+        Vector3 worldPosition =
+            origin.TransformPoint(
+                activeLayout.FirstLocalPosition);
 
         EditorGUI.BeginChangeCheck();
 
-        Vector3 newWorldPosition = Handles.PositionHandle(worldPosition,origin.rotation);
+        Vector3 newWorldPosition =
+            Handles.PositionHandle(
+                worldPosition,
+                origin.rotation);
 
         if (EditorGUI.EndChangeCheck())
         {
-            Undo.RecordObject(activeLayout,"Move box layout start position");
+            Undo.RecordObject(
+                activeLayout,
+                "Move box layout start position");
 
-            activeLayout.FirstLocalPosition = origin.InverseTransformPoint(newWorldPosition);
+            activeLayout.FirstLocalPosition =
+                origin.InverseTransformPoint(
+                    newWorldPosition);
 
             EditorUtility.SetDirty(activeLayout);
             SceneView.RepaintAll();
         }
+    }
+
+    private void DrawBaseInteractionProperties()
+    {
+        SerializedProperty interactionEnabled =
+            serializedObject.FindProperty(
+                "interactionEnabled");
+
+        SerializedProperty overridePriority =
+            serializedObject.FindProperty(
+                "overrideInteractionPriority");
+
+        SerializedProperty priority =
+            serializedObject.FindProperty(
+                "interactionPriority");
+
+        SerializedProperty primaryPrompt =
+            serializedObject.FindProperty(
+                "primaryPrompt");
+
+        SerializedProperty secondaryPrompt =
+            serializedObject.FindProperty(
+                "secondaryPrompt");
+
+        SerializedProperty usePrompt =
+            serializedObject.FindProperty(
+                "usePrompt");
+
+        SerializedProperty movePrompt =
+            serializedObject.FindProperty(
+                "movePrompt");
+
+        EditorGUILayout.PropertyField(
+            interactionEnabled);
+
+        EditorGUILayout.PropertyField(
+            overridePriority);
+
+        if (overridePriority.boolValue)
+        {
+            EditorGUILayout.PropertyField(priority);
+        }
+
+        EditorGUILayout.HelpBox(
+            "Leave prompt fields empty to use the built-in defaults.",
+            MessageType.Info);
+
+        EditorGUILayout.PropertyField(
+            primaryPrompt);
+
+        EditorGUILayout.PropertyField(
+            secondaryPrompt);
+
+        EditorGUILayout.PropertyField(
+            usePrompt);
+
+        EditorGUILayout.PropertyField(
+            movePrompt);
     }
 }
