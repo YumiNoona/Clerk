@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c22a9bf92b509104d9b2345888e0a550, type: 3}
+  m_Name: Base Customer Definition
+  m_EditorClassIdentifier: Assembly-CSharp::CustomerDefinition
+  displayName: Customer
+  customerPrefab: {fileID: 0}
+  spawnWeight: 1
+  minimumWalkSpeed: 1.8
+  maximumWalkSpeed: 2.8
+  minimumEntranceWaitTime: 0.25
+  maximumEntranceWaitTime: 1.5
+  randomizeScale: 1
+  minimumScale: 0.95
+  maximumScale: 1.05
+  animatorOverrideController: {fileID: 0}
