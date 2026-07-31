@@ -83,6 +83,19 @@ public sealed class GameplayModeController : MonoBehaviour
         }
     }
 
+    public void RefreshPresentation()
+    {
+        ApplyModePresentation();
+    }
+
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus)
+        {
+            ApplyModePresentation();
+        }
+    }
+
     private void ApplyModePresentation()
     {
         bool showCursor =

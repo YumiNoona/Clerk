@@ -39,8 +39,15 @@ public class PlayerController : MonoBehaviour
 
     private void Start()
     {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        // Cursor ownership belongs to GameplayModeController. Setting it here
+        // races the runtime main menu, whose Awake pauses and unlocks before
+        // scene Start methods run.
+        if (GameBootstrap.Instance == null)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
         horizontalRotation = transform.eulerAngles.y;
     }
 

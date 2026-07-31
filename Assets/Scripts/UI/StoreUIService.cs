@@ -501,6 +501,8 @@ public sealed class StoreUIService : MonoBehaviour
         pauseRoot.gameObject.SetActive(false);
         hudRoot.gameObject.SetActive(false);
         GameBootstrap.Instance.GameplayModes.Pause();
+        GameBootstrap.Instance.GameplayModes
+            .RefreshPresentation();
 
         Canvas.ForceUpdateCanvases();
 

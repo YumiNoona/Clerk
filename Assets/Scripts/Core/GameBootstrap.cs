@@ -41,6 +41,12 @@ public sealed class GameBootstrap : MonoBehaviour
         private set;
     }
 
+    public WalletController Wallet
+    {
+        get;
+        private set;
+    }
+
     public StoreEconomyService Economy
     {
         get;
@@ -169,6 +175,13 @@ public sealed class GameBootstrap : MonoBehaviour
 
         Checkouts =
             GetOrAdd<CheckoutRegistry>();
+
+        // The wallet is runtime state, just like the economy and finance
+        // services. Keeping it on the persistent composition root makes
+        // loans, purchases, sales, and saves work in every gameplay scene
+        // without requiring an authored UI object.
+        Wallet =
+            GetOrAdd<WalletController>();
 
         Economy =
             GetOrAdd<StoreEconomyService>();
