@@ -10,7 +10,7 @@ public class CustomerDefinition : ScriptableObject
     private string displayName = "Customer";
 
     [Header("Prefab")]
-    [Tooltip("Customer prefab containing the future CustomerBrain, " +
+    [Tooltip("Customer prefab containing CustomerBrain, " +
              "CustomerNavigation, CustomerAnimator and NavMeshAgent components.")]
     [SerializeField]
     private GameObject customerPrefab;

@@ -62,6 +62,16 @@ public abstract class CustomerPoint : MonoBehaviour
             Rotation);
     }
 
+    public void ConfigureWaiting(
+        float minimum,
+        float maximum)
+    {
+        minimumWaitTime = Mathf.Max(0f,minimum);
+        maximumWaitTime = Mathf.Max(
+            minimumWaitTime,
+            maximum);
+    }
+
     protected virtual void Reset()
     {
         standingPoint = transform;

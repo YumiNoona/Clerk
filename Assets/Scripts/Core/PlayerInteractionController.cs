@@ -9,7 +9,7 @@ public class PlayerInteractionController : MonoBehaviour
     public Camera TheCamera;
 
     [Header("Interaction")]
-    [Tooltip("Include Stock, Shelf, StockBox and Furniture layers.")]
+    [Tooltip("Include Stock, Shelf, Stock Box, Garbage Bin and Furniture layers.")]
     public LayerMask InteractionMask =
         Physics.DefaultRaycastLayers;
 
@@ -148,13 +148,6 @@ public class PlayerInteractionController : MonoBehaviour
             return modes.AllowsWorldInteraction;
         }
 
-        // Legacy fallback for scenes loaded without the runtime bootstrap.
-        if (UIController.Instance != null &&
-            UIController.Instance.IsPricePanelOpen)
-        {
-            return false;
-        }
-
         if (FurniturePlacementController.Instance != null &&
             FurniturePlacementController.Instance.IsPlacing)
         {
@@ -171,6 +164,21 @@ public class PlayerInteractionController : MonoBehaviour
             unityObject == null)
         {
             heldItem = null;
+            return;
+        }
+
+        if (WasPressed(GameplayAction.Use) &&
+            TryGetBestCandidate(
+                interactionRay,
+                InteractionType.Use,
+                out InteractableCandidate candidate) &&
+            candidate.Interactable is
+                IHeldItemInteractionTarget)
+        {
+            candidate.Interactable.Interact(
+                candidate.Context);
+
+            cachedPromptFrame = -1;
             return;
         }
 
@@ -241,9 +249,28 @@ public class PlayerInteractionController : MonoBehaviour
                 return cachedPrompt;
             }
 
-            cachedPrompt = heldItem.GetHeldPrompt(
-                this,
-                interactionRay);
+            promptBuilder.Clear();
+
+            if (TryGetBestCandidate(
+                    interactionRay,
+                    InteractionType.Use,
+                    out InteractableCandidate candidate) &&
+                candidate.Interactable is
+                    IHeldItemInteractionTarget &&
+                candidate.Interactable is
+                    IInteractionPromptProvider provider)
+            {
+                AppendUniquePrompt(
+                    provider.GetInteractionPrompt(
+                        candidate.Context));
+            }
+
+            AppendUniquePrompt(
+                heldItem.GetHeldPrompt(
+                    this,
+                    interactionRay));
+
+            cachedPrompt = promptBuilder.ToString();
 
             return cachedPrompt;
         }

@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f75e2d0a2c384f8aab2b6253872c72a9, type: 3}
+  m_Name: Customer Mood Catalog
+  m_EditorClassIdentifier: Clerk.Runtime::CustomerMoodCatalog
+  Excited: {fileID: 2800000, guid: eb6808a8b6873bf46b42e1db6f027458, type: 3}
+  Happy: {fileID: 2800000, guid: 163a66f988ad98d48b03cac696aa772b, type: 3}
+  Neutral: {fileID: 2800000, guid: 666359a282971c343b3ba3fc50967912, type: 3}
+  Annoyed: {fileID: 2800000, guid: 939c65f741964594593a7bad207bfe34, type: 3}
+  Angry: {fileID: 2800000, guid: 06aeffeb365b08343825d19622a9f0ed, type: 3}
+  Furious: {fileID: 2800000, guid: 2b7fcf1ca36a3ea4c8a2f663281f80ca, type: 3}

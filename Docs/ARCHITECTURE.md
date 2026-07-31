@@ -292,17 +292,13 @@ create one save component that reaches into every scene object.
 
 ### Clerk.UI
 
-Split the current `UIController` by screen:
+`StoreUIService` currently owns the generated main menu, HUD, crosshair, shelf
+price editor, purchase apps, pause menu, settings, saves, and notifications.
+`UIFactory` contains the shared uGUI construction helpers. Gameplay state stays
+in runtime services; UI only observes it and sends commands.
 
-- `PriceEditorPresenter`
-- `PurchaseCatalogPresenter`
-- `PauseMenuPresenter`
-- `HUDPresenter`
-- later `CheckoutPresenter` and `DailySummaryPresenter`
-
-A gameplay mode/state service owns whether player movement and interaction are
-allowed. Player scripts should not know that a specific price panel or furniture
-controller exists.
+`GameplayModeController` owns movement, interaction, cursor, pause, and UI mode
+presentation. Player scripts do not depend on a scene-authored price panel.
 
 ## Input and gameplay modes
 
@@ -333,9 +329,9 @@ Paused
 CheckoutInteraction
 ```
 
-This removes the direct checks from `PlayerController` and
-`PlayerInteractionController` to `UIController.Instance` and
-`FurniturePlacementController.Instance`.
+Input and cursor state are now routed through `GameInputController` and
+`GameplayModeController`. The remaining furniture-placement singleton is a
+scene adapter and should not be expanded into a general service locator.
 
 ## Migration order
 

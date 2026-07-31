@@ -25,6 +25,6 @@ Unity `6000.5.5f1`
 
 ## Running
 
-Open `Assets/Scenes/SampleScene.unity` and press Play. The main menu is generated
+Open `Assets/Scenes/Street.unity` and press Play. The main menu is generated
 at runtime. The desktop and phone can be opened from the pause menu; both use
 the same gameplay services and present different responsive shells.

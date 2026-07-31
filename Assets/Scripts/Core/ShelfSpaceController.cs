@@ -615,16 +615,15 @@ public class ShelfSpaceController :
             return;
         }
 
-        if (UIController.Instance == null)
+        if (GameBootstrap.Instance != null &&
+            GameBootstrap.Instance.UI != null &&
+            GameBootstrap.Instance.UI.OpenPriceEditor(this))
         {
-            Debug.LogWarning(
-                "UIController was not found in the scene.",
-                this);
-
             return;
         }
 
-        UIController.Instance.OpenUpdatePrice(
+        Debug.LogWarning(
+            "No shelf price editor is available.",
             this);
     }
 

@@ -42,6 +42,12 @@ public class CustomerExitPoint : CustomerPoint
         exitEnabled = enabled;
     }
 
+    public void Configure(Transform destinationDespawn)
+    {
+        despawnPoint = destinationDespawn;
+        exitEnabled = true;
+    }
+
     protected override void Reset()
     {
         base.Reset();

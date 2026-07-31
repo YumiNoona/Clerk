@@ -43,7 +43,7 @@ public class CustomerVisualVariation : MonoBehaviour
     [Header("Testing")]
     [Tooltip(
         "Enable only when testing a manually placed customer. " +
-        "The future spawner will call ApplyRandomVariation itself.")]
+        "The customer or pedestrian spawner calls ApplyRandomVariation automatically.")]
     [SerializeField]
     private bool randomizeOnAwake;
 

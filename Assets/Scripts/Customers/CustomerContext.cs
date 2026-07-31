@@ -98,6 +98,17 @@ public sealed class CustomerContext : MonoBehaviour
             Vector3.one *
             definition.GetRandomScale();
 
+        CustomerMoodPresenter moodPresenter =
+            GetComponent<CustomerMoodPresenter>();
+
+        if (moodPresenter == null)
+        {
+            moodPresenter =
+                gameObject.AddComponent<CustomerMoodPresenter>();
+        }
+
+        moodPresenter.Initialize(this);
+
         IsInitialized = true;
 
         if (GameBootstrap.Instance != null)

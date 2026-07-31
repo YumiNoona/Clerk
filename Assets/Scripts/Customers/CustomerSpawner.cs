@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public sealed class CustomerSpawner : MonoBehaviour
 {
@@ -73,10 +74,29 @@ public sealed class CustomerSpawner : MonoBehaviour
         BuildProductList();
     }
 
+    public void ConfigureScenePoints(
+        IReadOnlyList<CustomerSpawnPoint> configuredSpawns,
+        CustomerEntrancePoint configuredEntrance,
+        CustomerExitPoint configuredExit)
+    {
+        spawnPoints = configuredSpawns != null
+            ? new List<CustomerSpawnPoint>(configuredSpawns).ToArray()
+            : new CustomerSpawnPoint[0];
+
+        entrancePoints = configuredEntrance != null
+            ? new[] { configuredEntrance }
+            : new CustomerEntrancePoint[0];
+
+        exitPoints = configuredExit != null
+            ? new[] { configuredExit }
+            : new CustomerExitPoint[0];
+    }
+
     public bool TrySpawnCustomer()
     {
         if (customerDatabase == null ||
             GameBootstrap.Instance == null ||
+            !GameBootstrap.Instance.Days.IsDayRunning ||
             GameBootstrap.Instance.Customers.Count >=
                 maximumActiveCustomers)
         {
@@ -114,6 +134,19 @@ public sealed class CustomerSpawner : MonoBehaviour
                 definition.CustomerPrefab,
                 spawnPoint.GetSpawnPosition(),
                 spawnPoint.GetSpawnRotation());
+
+        NavMeshAgent agent =
+            customerObject.GetComponent<NavMeshAgent>();
+
+        if (agent != null)
+        {
+            agent.radius = Mathf.Max(agent.radius,0.38f);
+            agent.stoppingDistance =
+                Mathf.Max(agent.stoppingDistance,0.22f);
+            agent.avoidancePriority = Random.Range(25,76);
+            agent.obstacleAvoidanceType =
+                ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+        }
 
         CustomerContext context =
             customerObject.GetComponent<CustomerContext>();
@@ -275,10 +308,42 @@ public sealed class CustomerSpawner : MonoBehaviour
             }
         }
 
-        return enabledPoints.Count > 0
-            ? enabledPoints[
-                Random.Range(0,enabledPoints.Count)]
-            : null;
+        if (enabledPoints.Count == 0)
+        {
+            return null;
+        }
+
+        if (typeof(T) == typeof(CustomerSpawnPoint))
+        {
+            float totalWeight = 0f;
+
+            for (int i = 0; i < enabledPoints.Count; i++)
+            {
+                totalWeight +=
+                    ((CustomerSpawnPoint)(object)enabledPoints[i])
+                    .SpawnWeight;
+            }
+
+            if (totalWeight > 0f)
+            {
+                float selection = Random.value * totalWeight;
+
+                for (int i = 0; i < enabledPoints.Count; i++)
+                {
+                    selection -=
+                        ((CustomerSpawnPoint)(object)enabledPoints[i])
+                        .SpawnWeight;
+
+                    if (selection <= 0f)
+                    {
+                        return enabledPoints[i];
+                    }
+                }
+            }
+        }
+
+        return enabledPoints[
+            Random.Range(0,enabledPoints.Count)];
     }
 
     private void OnValidate()

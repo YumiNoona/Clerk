@@ -43,6 +43,16 @@ public class CustomerEntrancePoint : CustomerPoint
         entranceEnabled = enabled;
     }
 
+    public void Configure(
+        Transform destinationInside,
+        float minimumWait,
+        float maximumWait)
+    {
+        insidePoint = destinationInside;
+        ConfigureWaiting(minimumWait,maximumWait);
+        entranceEnabled = true;
+    }
+
     protected override void Reset()
     {
         base.Reset();

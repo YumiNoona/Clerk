@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -20,6 +21,7 @@ public enum StoreApplication
     Furniture,
     Register,
     Bank,
+    History,
     Staff,
     Security,
     Messages,
@@ -36,6 +38,7 @@ public sealed class StoreUIService : MonoBehaviour
     private RectTransform pauseRoot;
     private RectTransform mainMenuRoot;
     private RectTransform notificationRoot;
+    private RectTransform priceEditorRoot;
     private RectTransform deviceContent;
     private TextMeshProUGUI moneyText;
     private TextMeshProUGUI clockText;
@@ -47,6 +50,9 @@ public sealed class StoreUIService : MonoBehaviour
     private bool isRebinding;
     private bool showingMainMenu;
     private Button mainMenuStartButton;
+    private ShelfSpaceController priceEditorShelf;
+    private TMP_InputField priceInput;
+    private TextMeshProUGUI priceDetailsText;
     private GameObject mobileModelPrefab;
     private GameObject mobileModelInstance;
 
@@ -65,6 +71,7 @@ public sealed class StoreUIService : MonoBehaviour
         BuildPauseMenu();
         BuildMainMenu();
         BuildNotificationLayer();
+        BuildPriceEditor();
 
         GameBootstrap.Instance.GameplayModes.ModeChanged +=
             HandleModeChanged;
@@ -87,6 +94,15 @@ public sealed class StoreUIService : MonoBehaviour
     {
         UpdateHud();
 
+        if (priceEditorRoot != null &&
+            priceEditorRoot.gameObject.activeSelf &&
+            GameBootstrap.Instance.Input.WasPressedThisFrame(
+                GameplayAction.Cancel))
+        {
+            ClosePriceEditor();
+            return;
+        }
+
         if (deviceRoot != null &&
             deviceRoot.gameObject.activeSelf &&
             !isRebinding &&
@@ -94,6 +110,90 @@ public sealed class StoreUIService : MonoBehaviour
                 GameplayAction.Cancel))
         {
             CloseDevice();
+        }
+    }
+
+    public bool OpenPriceEditor(ShelfSpaceController shelf)
+    {
+        if (shelf == null || shelf.Info == null)
+        {
+            return false;
+        }
+
+        if (priceEditorRoot == null)
+        {
+            BuildPriceEditor();
+        }
+
+        if (priceEditorRoot == null ||
+            !GameBootstrap.Instance.GameplayModes
+                .TrySetMode(GameplayMode.PriceEditing))
+        {
+            return false;
+        }
+
+        priceEditorShelf = shelf;
+        priceDetailsText.text =
+            shelf.Info.ProductName +
+            "\nBase price: $" +
+            shelf.Info.BasePrice.ToString("0.00") +
+            "\nCurrent price: $" +
+            shelf.CurrentPrice.ToString("0.00");
+
+        priceInput.text = shelf.CurrentPrice.ToString(
+            "0.00",
+            CultureInfo.InvariantCulture);
+        priceEditorRoot.gameObject.SetActive(true);
+        priceInput.Select();
+        priceInput.ActivateInputField();
+        return true;
+    }
+
+    private void ApplyPriceEditor()
+    {
+        if (priceEditorShelf == null || priceInput == null)
+        {
+            ClosePriceEditor();
+            return;
+        }
+
+        if (!float.TryParse(
+                priceInput.text.Trim(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out float price) ||
+            price < 0f)
+        {
+            GameBootstrap.Instance.Notifications.Show(
+                "Enter a valid non-negative price, such as 2.99.",
+                NotificationKind.Error);
+            priceInput.Select();
+            priceInput.ActivateInputField();
+            return;
+        }
+
+        priceEditorShelf.SetCurrentPrice(price);
+        GameBootstrap.Instance.Notifications.Show(
+            "Shelf price updated to $" + price.ToString("0.00") + ".",
+            NotificationKind.Success);
+        ClosePriceEditor();
+    }
+
+    private void ClosePriceEditor()
+    {
+        if (priceEditorRoot != null)
+        {
+            priceEditorRoot.gameObject.SetActive(false);
+        }
+
+        priceEditorShelf = null;
+
+        if (GameBootstrap.Instance != null &&
+            GameBootstrap.Instance.GameplayModes.CurrentMode ==
+                GameplayMode.PriceEditing)
+        {
+            GameBootstrap.Instance.GameplayModes
+                .TrySetMode(GameplayMode.Gameplay);
         }
     }
 
@@ -208,6 +308,9 @@ public sealed class StoreUIService : MonoBehaviour
                 break;
             case StoreApplication.Bank:
                 BuildBank(deviceContent);
+                break;
+            case StoreApplication.History:
+                BuildTransactionHistory(deviceContent);
                 break;
             case StoreApplication.Staff:
                 BuildStaff(deviceContent);
@@ -326,6 +429,22 @@ public sealed class StoreUIService : MonoBehaviour
                 TextAlignmentOptions.Right);
 
         UIFactory.Size(statusText,420f,60f);
+
+        TextMeshProUGUI crosshair =
+            UIFactory.Text(
+                hudRoot,
+                "Crosshair",
+                "+",
+                30f,
+                TextAlignmentOptions.Center);
+
+        crosshair.color = new Color(1f,1f,1f,0.9f);
+        RectTransform crosshairRect = crosshair.rectTransform;
+        crosshairRect.anchorMin = new Vector2(0.5f,0.5f);
+        crosshairRect.anchorMax = new Vector2(0.5f,0.5f);
+        crosshairRect.pivot = new Vector2(0.5f,0.5f);
+        crosshairRect.anchoredPosition = Vector2.zero;
+        crosshairRect.sizeDelta = new Vector2(32f,32f);
     }
 
     private void BuildPauseMenu()
@@ -569,6 +688,82 @@ public sealed class StoreUIService : MonoBehaviour
         notificationRoot.gameObject.SetActive(false);
     }
 
+    private void BuildPriceEditor()
+    {
+        if (canvas == null || priceEditorRoot != null)
+        {
+            return;
+        }
+
+        priceEditorRoot = UIFactory.Panel(
+            canvas.transform,
+            "Shelf Price Editor",
+            new Color(0f,0f,0f,0.72f));
+
+        RectTransform card = UIFactory.Panel(
+            priceEditorRoot,
+            "Price Card",
+            UIFactory.Surface);
+        card.anchorMin = new Vector2(0.37f,0.28f);
+        card.anchorMax = new Vector2(0.63f,0.72f);
+        card.offsetMin = Vector2.zero;
+        card.offsetMax = Vector2.zero;
+        UIFactory.Vertical(card,14f,28f);
+
+        TextMeshProUGUI title = UIFactory.Text(
+            card,
+            "Title",
+            "SET SHELF PRICE",
+            30f,
+            TextAlignmentOptions.Center);
+        title.color = UIFactory.Accent;
+        UIFactory.Size(title,0f,58f);
+
+        priceDetailsText = UIFactory.Text(
+            card,
+            "Price Details",
+            string.Empty,
+            20f,
+            TextAlignmentOptions.Center);
+        UIFactory.Size(priceDetailsText,0f,105f);
+
+        RectTransform inputRoot = UIFactory.Panel(
+            card,
+            "Price Input",
+            UIFactory.SurfaceRaised);
+        UIFactory.Size(inputRoot,0f,58f);
+
+        priceInput = inputRoot.gameObject.AddComponent<TMP_InputField>();
+        TextMeshProUGUI inputText = UIFactory.Text(
+            inputRoot,
+            "Text",
+            string.Empty,
+            24f,
+            TextAlignmentOptions.Center);
+        inputText.raycastTarget = false;
+        priceInput.textComponent = inputText;
+        priceInput.contentType = TMP_InputField.ContentType.DecimalNumber;
+        priceInput.lineType = TMP_InputField.LineType.SingleLine;
+        priceInput.onSubmit.AddListener(_ => ApplyPriceEditor());
+
+        Button apply = UIFactory.Button(
+            card,
+            "Apply Price",
+            "APPLY PRICE",
+            ApplyPriceEditor,
+            UIFactory.Accent);
+        UIFactory.Size(apply,0f,54f);
+
+        Button cancel = UIFactory.Button(
+            card,
+            "Cancel",
+            "CANCEL",
+            ClosePriceEditor);
+        UIFactory.Size(cancel,0f,48f);
+
+        priceEditorRoot.gameObject.SetActive(false);
+    }
+
     private void BuildDeviceShell(StoreDeviceKind kind)
     {
         if (deviceRoot != null)
@@ -713,6 +908,7 @@ public sealed class StoreUIService : MonoBehaviour
             StoreApplication.Supply,
             StoreApplication.Register,
             StoreApplication.Bank,
+            StoreApplication.History,
             StoreApplication.Tasks,
             StoreApplication.Settings
         };
@@ -974,6 +1170,13 @@ public sealed class StoreUIService : MonoBehaviour
                 GameBootstrap.Instance.Finance
                     .OutstandingLoan));
 
+        AddMetric(
+            parent,
+            "AVAILABLE CREDIT",
+            FormatMoney(
+                GameBootstrap.Instance.Finance
+                    .AvailableCredit));
+
         AddActionButton(
             parent,
             "BORROW $500",
@@ -1022,12 +1225,68 @@ public sealed class StoreUIService : MonoBehaviour
                     ShowApplication(
                         StoreApplication.Bank);
                 });
+
+            AddActionButton(
+                parent,
+                "REPAY FULL BALANCE",
+                () =>
+                {
+                    Money outstanding =
+                        GameBootstrap.Instance.Finance
+                            .OutstandingLoan;
+
+                    bool success =
+                        GameBootstrap.Instance.Finance
+                            .Repay(outstanding);
+
+                    GameBootstrap.Instance.Notifications
+                        .Show(
+                            success
+                                ? "Loan paid in full."
+                                : "Not enough available balance.",
+                            success
+                                ? NotificationKind.Success
+                                : NotificationKind.Error);
+
+                    ShowApplication(
+                        StoreApplication.Bank);
+                });
         }
+    }
+
+    private void BuildTransactionHistory(Transform parent)
+    {
+        AddSectionTitle(parent,"FINANCIAL HISTORY");
 
         IReadOnlyList<LedgerEntry> entries =
             GameBootstrap.Instance.Economy.Entries;
 
-        int start = Mathf.Max(0,entries.Count - 12);
+        long incomeCents = 0;
+        long expenseCents = 0;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i].AmountCents >= 0)
+            {
+                incomeCents += entries[i].AmountCents;
+            }
+            else
+            {
+                expenseCents += -entries[i].AmountCents;
+            }
+        }
+
+        AddMetric(
+            parent,
+            "TOTAL MONEY IN",
+            FormatMoney(new Money(incomeCents)));
+
+        AddMetric(
+            parent,
+            "TOTAL MONEY OUT",
+            FormatMoney(new Money(expenseCents)));
+
+        int start = Mathf.Max(0,entries.Count - 50);
 
         for (int i = entries.Count - 1;
              i >= start;
@@ -1750,6 +2009,7 @@ public sealed class StoreUIService : MonoBehaviour
             StoreApplication.Furniture => "FURNITURE",
             StoreApplication.Register => "REGISTER",
             StoreApplication.Bank => "BANK",
+            StoreApplication.History => "HISTORY",
             StoreApplication.Staff => "STAFF",
             StoreApplication.Security => "SECURITY",
             StoreApplication.Messages => "MESSAGES",
@@ -1765,13 +2025,14 @@ public sealed class StoreUIService : MonoBehaviour
     {
         return application switch
         {
-            StoreApplication.Overview => "⌂",
-            StoreApplication.Supply => "▣",
-            StoreApplication.Register => "▤",
+            StoreApplication.Overview => "H",
+            StoreApplication.Supply => "S",
+            StoreApplication.Register => "R",
             StoreApplication.Bank => "$",
-            StoreApplication.Tasks => "✓",
-            StoreApplication.Settings => "⚙",
-            _ => "•"
+            StoreApplication.History => "L",
+            StoreApplication.Tasks => "T",
+            StoreApplication.Settings => "O",
+            _ => "."
         };
     }
 

@@ -1,20 +1,16 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement")]
-    public InputActionReference MoveAction;
     public CharacterController CharacterController;
     public float MoveSpeed = 5f;
 
     [Header("Jump")]
-    public InputActionReference JumpAction;
     public float JumpForce = 5f;
 
     [Header("Look")]
-    public InputActionReference LookAction;
     public float LookSpeed = 100f;
     public Camera TheCamera;
     public float MinLookAngle = -80f;
@@ -51,20 +47,6 @@ public class PlayerController : MonoBehaviour
         horizontalRotation = transform.eulerAngles.y;
     }
 
-    private void OnEnable()
-    {
-        EnableInputAction(MoveAction);
-        EnableInputAction(JumpAction);
-        EnableInputAction(LookAction);
-    }
-
-    private void OnDisable()
-    {
-        DisableInputAction(MoveAction);
-        DisableInputAction(JumpAction);
-        DisableInputAction(LookAction);
-    }
-
     private void Update()
     {
         GameplayModeController modes =
@@ -98,9 +80,7 @@ public class PlayerController : MonoBehaviour
             GameBootstrap.Instance != null
                 ? GameBootstrap.Instance.Input.ReadVector2(
                     GameplayAction.Look)
-                : LookAction != null
-                    ? LookAction.action.ReadValue<Vector2>()
-                    : Vector2.zero;
+                : Vector2.zero;
 
         horizontalRotation += lookInput.x * LookSpeed * Time.deltaTime;
         verticalRotation -= lookInput.y * LookSpeed * Time.deltaTime;
@@ -121,9 +101,7 @@ public class PlayerController : MonoBehaviour
             GameBootstrap.Instance != null
                 ? GameBootstrap.Instance.Input.ReadVector2(
                     GameplayAction.Move)
-                : MoveAction != null
-                    ? MoveAction.action.ReadValue<Vector2>()
-                    : Vector2.zero;
+                : Vector2.zero;
         Vector3 movement = transform.forward * moveInput.y + transform.right * moveInput.x;
 
         if (movement.sqrMagnitude > 1f)
@@ -141,13 +119,10 @@ public class PlayerController : MonoBehaviour
             }
 
             bool jumpPressed =
-                GameBootstrap.Instance != null
-                    ? GameBootstrap.Instance.Input
-                        .WasPressedThisFrame(
-                            GameplayAction.Jump)
-                    : JumpAction != null &&
-                      JumpAction.action
-                          .WasPressedThisFrame();
+                GameBootstrap.Instance != null &&
+                GameBootstrap.Instance.Input
+                    .WasPressedThisFrame(
+                        GameplayAction.Jump);
 
             if (jumpPressed)
             {
@@ -163,19 +138,4 @@ public class PlayerController : MonoBehaviour
         CharacterController.Move(movement * Time.deltaTime);
     }
 
-    private static void EnableInputAction(InputActionReference actionReference)
-    {
-        if (actionReference != null)
-        {
-            actionReference.action.Enable();
-        }
-    }
-
-    private static void DisableInputAction(InputActionReference actionReference)
-    {
-        if (actionReference != null)
-        {
-            actionReference.action.Disable();
-        }
-    }
 }

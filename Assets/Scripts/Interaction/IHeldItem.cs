@@ -20,3 +20,12 @@ public interface IHeldItem
 
     void ForceRelease(PlayerInteractionController player);
 }
+
+/// <summary>
+/// Marks a world interactable that remains usable while the player is
+/// carrying an item. Keep this interface narrow so ordinary world
+/// interactions cannot accidentally run during held-item input.
+/// </summary>
+public interface IHeldItemInteractionTarget
+{
+}

@@ -12,10 +12,23 @@ public class CustomerSpawnPoint : CustomerPoint
     [SerializeField]
     private float randomSpawnRadius;
 
+    [Min(0f)]
+    [SerializeField]
+    private float spawnWeight = 1f;
+
     public bool SpawningEnabled => spawningEnabled;
 
     public float RandomSpawnRadius =>
         randomSpawnRadius;
+
+    public float SpawnWeight => spawnWeight;
+
+    public void Configure(float weight, float radius)
+    {
+        spawnWeight = Mathf.Max(0f,weight);
+        randomSpawnRadius = Mathf.Max(0f,radius);
+        spawningEnabled = spawnWeight > 0f;
+    }
 
     public Vector3 GetSpawnPosition()
     {
@@ -51,6 +64,7 @@ public class CustomerSpawnPoint : CustomerPoint
 
         spawningEnabled = true;
         randomSpawnRadius = 0f;
+        spawnWeight = 1f;
     }
 
     protected override void OnValidate()
@@ -59,6 +73,8 @@ public class CustomerSpawnPoint : CustomerPoint
 
         randomSpawnRadius =
             Mathf.Max(0f,randomSpawnRadius);
+
+        spawnWeight = Mathf.Max(0f,spawnWeight);
     }
 
 #if UNITY_EDITOR

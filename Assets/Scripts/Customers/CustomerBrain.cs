@@ -256,6 +256,14 @@ public sealed class CustomerBrain : MonoBehaviour
                 }
             }
 
+            // Queue points define where customers stand, while the counter
+            // itself defines what they should look at. Reapply this while
+            // waiting because avoidance and queue advancement can otherwise
+            // leave the agent facing its last movement direction.
+            context.Navigation.FaceDirection(
+                counter.transform.position -
+                context.transform.position);
+
             if (counter.IsFirst(context))
             {
                 context.SetState(

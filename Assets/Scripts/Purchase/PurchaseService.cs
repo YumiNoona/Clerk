@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PurchaseService : MonoBehaviour
 {
@@ -37,6 +38,14 @@ public class PurchaseService : MonoBehaviour
 
         Instance = this;
 
+        StoreSceneConfiguration sceneConfiguration =
+            FindAnyObjectByType<StoreSceneConfiguration>();
+
+        if (sceneConfiguration != null)
+        {
+            sceneConfiguration.SynchronizeRuntimePoints();
+        }
+
         if (GameBootstrap.Instance != null)
         {
             GameBootstrap.Instance.Saves
@@ -47,6 +56,7 @@ public class PurchaseService : MonoBehaviour
         }
 
         EnsureCustomerSpawner();
+        EnsureStreetPedestrians();
 
         if (GameBootstrap.Instance != null &&
             StartingObjectives != null)
@@ -176,6 +186,38 @@ public class PurchaseService : MonoBehaviour
         spawner.Configure(
             CustomerDatabase,
             PurchaseCatalog);
+
+        StoreSceneConfiguration configuration =
+            FindAnyObjectByType<StoreSceneConfiguration>();
+
+        if (configuration != null)
+        {
+            spawner.ConfigureScenePoints(
+                configuration.RuntimeSpawns,
+                configuration.RuntimeEntrance,
+                configuration.RuntimeExit);
+        }
+    }
+
+    private void EnsureStreetPedestrians()
+    {
+        StoreSceneConfiguration configuration =
+            FindAnyObjectByType<StoreSceneConfiguration>();
+
+        if (CustomerDatabase == null ||
+            SceneManager.GetActiveScene().name != "Street" ||
+            FindAnyObjectByType<StreetPedestrianSpawner>() != null ||
+            configuration == null ||
+            !configuration.HasPedestrianTrack)
+        {
+            return;
+        }
+
+        GameObject pedestrians =
+            new GameObject("Street Pedestrians");
+
+        pedestrians.AddComponent<StreetPedestrianSpawner>()
+            .Configure(CustomerDatabase,configuration.PedestrianTrack);
     }
 
     public bool TryPurchaseStock(StockPurchaseData purchaseData)

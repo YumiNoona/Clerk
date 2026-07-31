@@ -2067,19 +2067,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 340247655}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 988235378}
-        m_TargetAssemblyTypeName: UIController, Assembly-CSharp
-        m_MethodName: CloseUpdatePrice
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &340247655
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4404,7 +4392,6 @@ GameObject:
   - component: {fileID: 988235376}
   - component: {fileID: 988235375}
   - component: {fileID: 988235374}
-  - component: {fileID: 988235378}
   m_Layer: 5
   m_Name: UI Canvas
   m_TagString: Untagged
@@ -4501,23 +4488,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
---- !u!114 &988235378
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 988235373}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4d89737c60881d44a265c3b48d12cd1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UIController
-  UpdatePricePanel: {fileID: 155827998}
-  BasePriceText: {fileID: 1793505355}
-  CurrentPriceText: {fileID: 663765842}
-  PriceInputField: {fileID: 2143092333}
-  CurrencySymbol: $
 --- !u!1 &991361948
 GameObject:
   m_ObjectHideFlags: 0
@@ -4905,12 +4875,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd0a1ef20f01668419fe704360bf1de7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  MoveAction: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   CharacterController: {fileID: 1054972372}
   MoveSpeed: 5
-  JumpAction: {fileID: -2099379676528639254, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   JumpForce: 5
-  LookAction: {fileID: -5630151704836100654, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   LookSpeed: 10
   TheCamera: {fileID: 330585545}
   MinLookAngle: -80
@@ -4955,7 +4922,7 @@ MonoBehaviour:
   TheCamera: {fileID: 330585545}
   InteractionMask:
     serializedVersion: 2
-    m_Bits: 1472
+    m_Bits: 1984
   InteractionRange: 3
   HoldPoint: {fileID: 1404994475}
   BoxHoldPoint: {fileID: 1559243736}
@@ -5392,19 +5359,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1222509606}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 988235378}
-        m_TargetAssemblyTypeName: UIController, Assembly-CSharp
-        m_MethodName: ApplyPriceUpdate
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &1222509606
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7660,52 +7615,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2028885491}
   m_CullTransparentMesh: 1
---- !u!1 &2087592690
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2087592691}
-  - component: {fileID: 2087592692}
-  m_Layer: 0
-  m_Name: Wallet Controller
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2087592691
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2087592690}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2092414600}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2087592692
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2087592690}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8e6ea53cbd41e4a47b0839d21c8c2d49, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WalletController
-  startingMoney: 1000
-  currentBalanceCents: 0
 --- !u!1 &2089572857
 GameObject:
   m_ObjectHideFlags: 0
@@ -7814,7 +7723,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2087592691}
   - {fileID: 1687611080}
   - {fileID: 267962189}
   - {fileID: 234656682}

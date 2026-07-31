@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -9,30 +8,7 @@ using UnityEngine.SceneManagement;
 public static class StreetSceneSetup
 {
     private const string ScenePath = "Assets/Scenes/Street.unity";
-    private const string RunOncePath = "ProjectSettings/ClerkConfigureStreet.once";
-
-    [InitializeOnLoadMethod]
-    private static void RunRequestedSetup()
-    {
-        EditorApplication.delayCall += () =>
-        {
-            if (!File.Exists(RunOncePath))
-            {
-                return;
-            }
-
-            if (EditorApplication.isPlayingOrWillChangePlaymode ||
-                EditorApplication.isCompiling)
-            {
-                return;
-            }
-
-            File.Delete(RunOncePath);
-            ConfigureStreetScene();
-        };
-    }
-
-    [MenuItem("Clerk/Setup/Configure Street Scene %&s")]
+    [MenuItem("Clerk/Setup/Configure Street Scene")]
     public static void ConfigureStreetScene()
     {
         Scene scene = SceneManager.GetActiveScene();
@@ -90,6 +66,16 @@ public static class StreetSceneSetup
         placementController.PlacementBlockingMask = LayerMask.GetMask("Furniture Placement Blocker");
         placementController.MaximumPlacementDistance = 8f;
 
+        PlayerInteractionController interactionController =
+            GetOrAdd<PlayerInteractionController>(player.gameObject);
+
+        interactionController.InteractionMask = LayerMask.GetMask(
+            "Stock",
+            "Shelf",
+            "Stock Box",
+            "Garbage Bin",
+            "Furniture");
+
         foreach (string path in new[] {
                      "Store/Navigation/Customer Flow/Spawn Points/Customer Spawn 01",
                      "Store/Navigation/Customer Flow/Spawn Points/Customer Spawn 02" })
@@ -142,6 +128,7 @@ public static class StreetSceneSetup
         EditorUtility.SetDirty(furnitureService);
         EditorUtility.SetDirty(placementArea);
         EditorUtility.SetDirty(placementController);
+        EditorUtility.SetDirty(interactionController);
         EditorUtility.SetDirty(entranceComponent);
         EditorUtility.SetDirty(exitComponent);
         EditorUtility.SetDirty(purchaseService);

@@ -267,12 +267,12 @@ public class StockBoxController :
         PlayerInteractionController player,
         GameplayAction action,
         string description,
-        string legacyPrompt)
+        string fallbackPrompt)
     {
         return player != null &&
                GameBootstrap.Instance != null
             ? player.FormatPrompt(action,description)
-            : legacyPrompt;
+            : fallbackPrompt;
     }
 
     private void Throw(PlayerInteractionController player)

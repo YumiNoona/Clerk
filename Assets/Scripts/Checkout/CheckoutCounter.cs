@@ -53,6 +53,25 @@ public sealed class CheckoutCounter :
     public event Action<CheckoutSession> SessionStarted;
     public event Action<CheckoutSession> SessionCompleted;
 
+    public void ConfigureQueuePoints(
+        IReadOnlyList<Transform> points)
+    {
+        queuePoints.Clear();
+
+        if (points == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < points.Count; i++)
+        {
+            if (points[i] != null)
+            {
+                queuePoints.Add(points[i]);
+            }
+        }
+    }
+
     private void Awake()
     {
         EnsureId();
