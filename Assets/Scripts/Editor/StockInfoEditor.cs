@@ -18,7 +18,8 @@ public class StockInfoEditor : Editor
         productName = serializedObject.FindProperty("ProductName");
         category = serializedObject.FindProperty("Category");
         basePrice = serializedObject.FindProperty("BasePrice");
-        currentPrice = serializedObject.FindProperty("CurrentPrice");
+        currentPrice =
+            serializedObject.FindProperty("initialPrice");
         stockPrefab = serializedObject.FindProperty("StockPrefab");
         defaultBoxLayout = serializedObject.FindProperty("DefaultBoxLayout");
     }

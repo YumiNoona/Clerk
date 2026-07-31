@@ -12,4 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c1752fbd50c0aa14b8591b9bff2fbb40, type: 3}
   m_Name: Customer Database
   m_EditorClassIdentifier: Assembly-CSharp::CustomerDatabase
-  customers: []
+  customers:
+  - {fileID: 11400000, guid: ca6a928dab5041f4abb31a1554132309, type: 2}

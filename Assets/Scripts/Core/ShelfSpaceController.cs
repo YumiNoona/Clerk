@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using TMPro;
 using UnityEngine;
 
@@ -21,7 +22,22 @@ public class ShelfSpaceController :
     }
 
     [Header("Shelf Information")]
+    [SerializeField,HideInInspector]
+    private string shelfId;
+
     public StockInfo Info;
+
+    [Tooltip(
+        "Keep the product assigned when the last item is taken, " +
+        "allowing customers and UI to report an out-of-stock shelf.")]
+    public bool KeepProductAssignmentWhenEmpty = true;
+
+    [Header("Customer Access")]
+    [Tooltip(
+        "Optional position where customers stand while browsing this shelf.")]
+    public Transform CustomerStandingPoint;
+
+    public float CustomerStoppingDistance = 0.35f;
 
     [Header("Shelf Label")]
     public TMP_Text ShelfLabel;
@@ -63,12 +79,108 @@ public class ShelfSpaceController :
         }
     }
 
+    public int ReservedStockCount
+    {
+        get
+        {
+            ReconcileReservations();
+            return reservedStockCount;
+        }
+    }
+
+    public int AvailableStockCount =>
+        Mathf.Max(
+            0,
+            StockCount - ReservedStockCount);
+
     public bool HasStock =>
         StockCount > 0 &&
         Info != null;
 
+    public bool HasAvailableStock =>
+        AvailableStockCount > 0 &&
+        Info != null;
+
+    public bool IsOutOfStock =>
+        Info != null &&
+        StockCount == 0;
+
+    public Vector3 CustomerStandingPosition =>
+        CustomerStandingPoint != null
+            ? CustomerStandingPoint.position
+            : transform.position -
+              transform.forward;
+
+    public Quaternion CustomerStandingRotation =>
+        CustomerStandingPoint != null
+            ? CustomerStandingPoint.rotation
+            : Quaternion.LookRotation(
+                transform.position -
+                CustomerStandingPosition,
+                Vector3.up);
+
+    public event Action<ShelfSpaceController>
+        InventoryChanged;
+
+    public event Action<ShelfSpaceController>
+        OutOfStock;
+
+    private readonly Dictionary<string,ShelfReservation>
+        reservations =
+            new Dictionary<string,ShelfReservation>();
+
+    private int reservedStockCount;
+
+    public string ShelfId => shelfId;
+
+    public float CurrentPrice
+    {
+        get
+        {
+            if (Info == null)
+            {
+                return 0f;
+            }
+
+            return GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Products
+                    .GetPrice(Info)
+                : Info.InitialPrice;
+        }
+    }
+
+    private void OnEnable()
+    {
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.Products
+                .ProductPriceChanged +=
+                    HandleProductPriceChanged;
+
+            GameBootstrap.Instance.Shelves
+                .Register(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.Products
+                .ProductPriceChanged -=
+                    HandleProductPriceChanged;
+
+            GameBootstrap.Instance.Shelves
+                .Unregister(this);
+        }
+
+        ReleaseAllReservations();
+    }
+
     private void Awake()
     {
+        EnsureId();
+
         if (ObjectsOnShelf == null)
         {
             ObjectsOnShelf =
@@ -116,7 +228,7 @@ public class ShelfSpaceController :
         if (context.Type ==
             InteractionType.Secondary)
         {
-            return ObjectsOnShelf.Count > 0 &&
+            return AvailableStockCount > 0 &&
                    !context.Player
                        .IsHoldingAnything;
         }
@@ -124,8 +236,7 @@ public class ShelfSpaceController :
         if (context.Type ==
             InteractionType.Use)
         {
-            return ObjectsOnShelf.Count > 0 &&
-                   Info != null;
+            return Info != null;
         }
 
         return false;
@@ -155,13 +266,23 @@ public class ShelfSpaceController :
         if (interactionType ==
             InteractionType.Secondary)
         {
-            return "[Right Click] Take Stock";
+            return GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Input
+                    .FormatPrompt(
+                        GameplayAction.Secondary,
+                        "Take Stock")
+                : "[Right Click] Take Stock";
         }
 
         if (interactionType ==
             InteractionType.Use)
         {
-            return "[E] Change Price";
+            return GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Input
+                    .FormatPrompt(
+                        GameplayAction.Use,
+                        "Change Price")
+                : "[E] Change Price";
         }
 
         return string.Empty;
@@ -282,6 +403,7 @@ public class ShelfSpaceController :
             targetRotation);
 
         UpdateShelfLabel();
+        NotifyInventoryChanged();
 
         return true;
     }
@@ -290,9 +412,8 @@ public class ShelfSpaceController :
     {
         RemoveMissingObjects();
 
-        if (ObjectsOnShelf.Count == 0)
+        if (AvailableStockCount == 0)
         {
-            Info = null;
             UpdateShelfLabel();
             return null;
         }
@@ -305,22 +426,191 @@ public class ShelfSpaceController :
 
         ObjectsOnShelf.RemoveAt(lastIndex);
 
-        if (ObjectsOnShelf.Count == 0)
+        if (ObjectsOnShelf.Count == 0 &&
+            !KeepProductAssignmentWhenEmpty)
         {
             Info = null;
         }
 
         UpdateShelfLabel();
+        NotifyInventoryChanged();
 
         return objectToReturn;
+    }
+
+    public bool HasAvailableProduct(StockInfo product)
+    {
+        return product != null &&
+               Info == product &&
+               AvailableStockCount > 0;
+    }
+
+    public bool TryReserve(
+        string ownerId,
+        StockInfo product,
+        int quantity,
+        out ShelfReservation reservation)
+    {
+        reservation = null;
+
+        if (string.IsNullOrWhiteSpace(ownerId) ||
+            product == null ||
+            Info != product ||
+            quantity <= 0 ||
+            AvailableStockCount < quantity)
+        {
+            return false;
+        }
+
+        reservation =
+            new ShelfReservation(
+                ownerId,
+                this,
+                product,
+                quantity);
+
+        reservations.Add(
+            reservation.ReservationId,
+            reservation);
+
+        reservedStockCount += quantity;
+        InventoryChanged?.Invoke(this);
+        return true;
+    }
+
+    public bool ReleaseReservation(
+        ShelfReservation reservation)
+    {
+        if (!OwnsReservation(reservation))
+        {
+            return false;
+        }
+
+        reservations.Remove(
+            reservation.ReservationId);
+
+        reservedStockCount =
+            Mathf.Max(
+                0,
+                reservedStockCount -
+                reservation.RemainingQuantity);
+
+        reservation.RemainingQuantity = 0;
+        InventoryChanged?.Invoke(this);
+        return true;
+    }
+
+    public bool TryTakeReservedStock(
+        ShelfReservation reservation,
+        out StockObject stockObject)
+    {
+        stockObject = null;
+
+        if (!OwnsReservation(reservation) ||
+            reservation.RemainingQuantity <= 0 ||
+            ObjectsOnShelf.Count == 0)
+        {
+            return false;
+        }
+
+        int lastIndex = ObjectsOnShelf.Count - 1;
+        stockObject = ObjectsOnShelf[lastIndex];
+        ObjectsOnShelf.RemoveAt(lastIndex);
+
+        reservation.RemainingQuantity--;
+        reservedStockCount =
+            Mathf.Max(0,reservedStockCount - 1);
+
+        if (reservation.RemainingQuantity == 0)
+        {
+            reservations.Remove(
+                reservation.ReservationId);
+        }
+
+        if (stockObject != null)
+        {
+            stockObject.PrepareForShelfPickup();
+        }
+
+        if (ObjectsOnShelf.Count == 0 &&
+            !KeepProductAssignmentWhenEmpty)
+        {
+            Info = null;
+        }
+
+        UpdateShelfLabel();
+        NotifyInventoryChanged();
+        return stockObject != null;
+    }
+
+    public bool TryClearProductAssignment()
+    {
+        if (StockCount > 0 ||
+            ReservedStockCount > 0)
+        {
+            return false;
+        }
+
+        Info = null;
+        UpdateShelfLabel();
+        InventoryChanged?.Invoke(this);
+        return true;
+    }
+
+    public void RestoreInventory(
+        StockInfo product,
+        int quantity)
+    {
+        ReleaseAllReservations();
+
+        for (int i = ObjectsOnShelf.Count - 1;
+             i >= 0;
+             i--)
+        {
+            if (ObjectsOnShelf[i] != null)
+            {
+                Destroy(
+                    ObjectsOnShelf[i].gameObject);
+            }
+        }
+
+        ObjectsOnShelf.Clear();
+        Info = product;
+
+        if (product != null &&
+            product.StockPrefab != null)
+        {
+            int safeQuantity =
+                Mathf.Max(0,quantity);
+
+            for (int i = 0;
+                 i < safeQuantity;
+                 i++)
+            {
+                StockObject stock =
+                    Instantiate(
+                        product.StockPrefab,
+                        transform);
+
+                stock.Info = product;
+
+                if (!PlaceStock(stock))
+                {
+                    Destroy(stock.gameObject);
+                    break;
+                }
+            }
+        }
+
+        UpdateShelfLabel();
+        NotifyInventoryChanged();
     }
 
     public void StartPriceUpdate()
     {
         RemoveMissingObjects();
 
-        if (ObjectsOnShelf.Count == 0 ||
-            Info == null)
+        if (Info == null)
         {
             return;
         }
@@ -346,8 +636,11 @@ public class ShelfSpaceController :
             return;
         }
 
-        Info.CurrentPrice =
-            Mathf.Max(0f,newPrice);
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.Products
+                .TrySetPrice(Info,newPrice);
+        }
 
         UpdateShelfLabel();
     }
@@ -361,8 +654,7 @@ public class ShelfSpaceController :
 
         RemoveMissingObjects();
 
-        if (ObjectsOnShelf.Count == 0 ||
-            Info == null)
+        if (Info == null)
         {
             ShelfLabel.text = string.Empty;
             return;
@@ -370,7 +662,18 @@ public class ShelfSpaceController :
 
         ShelfLabel.text =
             CurrencySymbol +
-            Info.CurrentPrice.ToString("0.00");
+            CurrentPrice.ToString("0.00");
+    }
+
+    private void HandleProductPriceChanged(
+        ProductState state)
+    {
+        if (Info != null &&
+            state != null &&
+            state.ProductId == Info.ProductId)
+        {
+            UpdateShelfLabel();
+        }
     }
 
     private int GetMaximumObjects(
@@ -510,10 +813,97 @@ public class ShelfSpaceController :
             stockObject =>
                 stockObject == null);
 
-        if (ObjectsOnShelf.Count == 0)
+        if (ObjectsOnShelf.Count == 0 &&
+            !KeepProductAssignmentWhenEmpty)
         {
             Info = null;
         }
+
+        ReconcileReservations();
+    }
+
+    private bool OwnsReservation(
+        ShelfReservation reservation)
+    {
+        return reservation != null &&
+               reservation.Shelf == this &&
+               reservations.TryGetValue(
+                   reservation.ReservationId,
+                   out ShelfReservation existing) &&
+               ReferenceEquals(existing,reservation);
+    }
+
+    private void ReconcileReservations()
+    {
+        if (reservedStockCount <= ObjectsOnShelf.Count)
+        {
+            return;
+        }
+
+        int excess =
+            reservedStockCount -
+            ObjectsOnShelf.Count;
+
+        List<ShelfReservation> active =
+            new List<ShelfReservation>(
+                reservations.Values);
+
+        for (int i = active.Count - 1;
+             i >= 0 && excess > 0;
+             i--)
+        {
+            ShelfReservation reservation = active[i];
+            int reduction = Mathf.Min(
+                reservation.RemainingQuantity,
+                excess);
+
+            reservation.RemainingQuantity -= reduction;
+            reservedStockCount -= reduction;
+            excess -= reduction;
+
+            if (reservation.RemainingQuantity == 0)
+            {
+                reservations.Remove(
+                    reservation.ReservationId);
+            }
+        }
+    }
+
+    private void ReleaseAllReservations()
+    {
+        foreach (ShelfReservation reservation in
+                 reservations.Values)
+        {
+            reservation.RemainingQuantity = 0;
+        }
+
+        reservations.Clear();
+        reservedStockCount = 0;
+    }
+
+    private void NotifyInventoryChanged()
+    {
+        InventoryChanged?.Invoke(this);
+
+        if (IsOutOfStock)
+        {
+            OutOfStock?.Invoke(this);
+        }
+    }
+
+    private void EnsureId()
+    {
+        if (string.IsNullOrWhiteSpace(shelfId))
+        {
+            shelfId =
+                Guid.NewGuid().ToString("N");
+        }
+    }
+
+    public void RegeneratePersistentId()
+    {
+        shelfId =
+            Guid.NewGuid().ToString("N");
     }
 
     private void UpdateObjectPositions()
@@ -561,5 +951,10 @@ public class ShelfSpaceController :
 
         NumberOfRows =
             Mathf.Max(1,NumberOfRows);
+
+        CustomerStoppingDistance =
+            Mathf.Max(0f,CustomerStoppingDistance);
+
+        EnsureId();
     }
 }

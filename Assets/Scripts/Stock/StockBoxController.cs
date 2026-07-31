@@ -1,13 +1,19 @@
 using System.Collections;
 using System.Collections.Generic;
+using System;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class StockBoxController :
     InteractableBehaviour,
     IHeldItem
 {
+    [SerializeField,HideInInspector]
+    private string boxId;
+
+    [SerializeField,HideInInspector]
+    private string purchaseId;
+
     public StockInfo Product;
     public BoxLayout Layout;
     public int Quantity = 12;
@@ -82,8 +88,12 @@ public class StockBoxController :
     public int MaximumQuantity =>
         Layout != null ? Layout.Capacity : 0;
 
+    public string BoxId => boxId;
+    public string PurchaseId => purchaseId;
+
     private void Awake()
     {
+        EnsureId();
         CacheComponents();
 
         if (Layout == null && Product != null)
@@ -167,25 +177,22 @@ public class StockBoxController :
             return;
         }
 
-        if (Keyboard.current != null &&
-            Keyboard.current.eKey.wasPressedThisFrame)
+        if (player.WasPressed(
+                GameplayAction.Use))
         {
             ToggleOpen();
         }
 
-        if (Mouse.current == null)
-        {
-            return;
-        }
-
-        if (Mouse.current.rightButton.wasPressedThisFrame)
+        if (player.WasPressed(
+                GameplayAction.Secondary))
         {
             Throw(player);
             return;
         }
 
         if (!isOpen ||
-            !Mouse.current.leftButton.isPressed ||
+            !player.IsPressed(
+                GameplayAction.Primary) ||
             Time.time < nextStockTime)
         {
             return;
@@ -211,7 +218,18 @@ public class StockBoxController :
         Ray interactionRay)
     {
         string openClosePrompt =
-            isOpen ? ClosePrompt : OpenPrompt;
+            GetPrompt(
+                player,
+                GameplayAction.Use,
+                isOpen ? "Close Box" : "Open Box",
+                isOpen ? ClosePrompt : OpenPrompt);
+
+        string throwPrompt =
+            GetPrompt(
+                player,
+                GameplayAction.Secondary,
+                "Throw",
+                ThrowPrompt);
 
         bool canStockShelf = false;
 
@@ -231,14 +249,30 @@ public class StockBoxController :
         {
             return openClosePrompt +
                    "\n" +
-                   StockShelfPrompt +
+                   GetPrompt(
+                       player,
+                       GameplayAction.Primary,
+                       "Stock Shelf",
+                       StockShelfPrompt) +
                    "\n" +
-                   ThrowPrompt;
+                   throwPrompt;
         }
 
         return openClosePrompt +
                "\n" +
-               ThrowPrompt;
+               throwPrompt;
+    }
+
+    private static string GetPrompt(
+        PlayerInteractionController player,
+        GameplayAction action,
+        string description,
+        string legacyPrompt)
+    {
+        return player != null &&
+               GameBootstrap.Instance != null
+            ? player.FormatPrompt(action,description)
+            : legacyPrompt;
     }
 
     private void Throw(PlayerInteractionController player)
@@ -279,6 +313,36 @@ public class StockBoxController :
     public void ToggleOpen()
     {
         SetOpen(!isOpen);
+    }
+
+    public void InitializeDelivery(
+        string sourcePurchaseId)
+    {
+        purchaseId = sourcePurchaseId ?? string.Empty;
+        EnsureId();
+    }
+
+    public void RestoreState(
+        StockInfo product,
+        BoxLayout layout,
+        int quantity,
+        string restoredBoxId,
+        string restoredPurchaseId)
+    {
+        Product = product;
+        Layout = layout != null
+            ? layout
+            : product != null
+                ? product.DefaultBoxLayout
+                : null;
+
+        Quantity = quantity;
+        boxId = restoredBoxId;
+        purchaseId = restoredPurchaseId;
+        EnsureId();
+        ClampQuantity();
+        SetOpen(false);
+        UpdateLabels();
     }
 
     public void SetOpen(bool open)
@@ -614,6 +678,14 @@ public class StockBoxController :
         }
     }
 
+    private void EnsureId()
+    {
+        if (string.IsNullOrWhiteSpace(boxId))
+        {
+            boxId = Guid.NewGuid().ToString("N");
+        }
+    }
+
     private void SetPhysicsHeld(bool held)
     {
         if (TheRB != null)
@@ -659,6 +731,7 @@ public class StockBoxController :
             Mathf.Max(0.01f,StockingInterval);
 
         ClampQuantity();
+        EnsureId();
     }
 
     private void OnDestroy()

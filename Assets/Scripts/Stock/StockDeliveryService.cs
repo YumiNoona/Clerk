@@ -29,6 +29,9 @@ public class StockDeliveryService : MonoBehaviour
 
         StockBoxController deliveredBox = Instantiate(purchaseData.BoxPrefab,spawnPosition,spawnRotation);
 
+        deliveredBox.InitializeDelivery(
+            purchaseData.PurchaseId);
+
         deliveredBox.Product = purchaseData.Product;
         deliveredBox.Layout = purchaseData.Product.DefaultBoxLayout;
 

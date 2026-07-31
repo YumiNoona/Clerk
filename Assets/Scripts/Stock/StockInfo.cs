@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [CreateAssetMenu(fileName = "New Stock Product",menuName = "Stock System/Stock Product")]
 public class StockInfo : ScriptableObject
@@ -10,7 +11,10 @@ public class StockInfo : ScriptableObject
     public StockCategory Category;
 
     public float BasePrice;
-    public float CurrentPrice;
+
+    [FormerlySerializedAs("CurrentPrice")]
+    [SerializeField]
+    private float initialPrice;
 
     public StockObject StockPrefab;
     public BoxLayout DefaultBoxLayout;
@@ -22,6 +26,8 @@ public class StockInfo : ScriptableObject
             return productId;
         }
     }
+
+    public float InitialPrice => initialPrice;
 
 #if UNITY_EDITOR
     private void OnValidate()
@@ -40,7 +46,8 @@ public class StockInfo : ScriptableObject
         }
 
         BasePrice = Mathf.Max(0f,BasePrice);
-        CurrentPrice = Mathf.Max(0f,CurrentPrice);
+        initialPrice =
+            Mathf.Max(0f,initialPrice);
     }
 #endif
 }

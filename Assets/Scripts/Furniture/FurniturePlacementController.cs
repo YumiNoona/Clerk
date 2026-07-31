@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class FurniturePlacementController : MonoBehaviour
 {
@@ -23,8 +22,6 @@ public class FurniturePlacementController : MonoBehaviour
     public float BoundsPadding = 0.02f;
 
     [Header("Input")]
-    public Key RotationKey = Key.R;
-    public Key CancelKey = Key.Escape;
     public float KeyboardRotationAmount = 90f;
 
     [Header("Debug")]
@@ -87,6 +84,13 @@ public class FurniturePlacementController : MonoBehaviour
         surfacePointVelocity = Vector3.zero;
 
         activeFurniture.BeginMovePlacement();
+
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.GameplayModes
+                .TrySetMode(
+                    GameplayMode.FurniturePlacement);
+        }
 
         if (FurnitureHoldPoint != null)
         {
@@ -181,39 +185,45 @@ public class FurniturePlacementController : MonoBehaviour
 
     private void HandlePlacementInput()
     {
-        if (Mouse.current != null)
+        GameInputController input =
+            GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Input
+                : null;
+
+        if (input == null)
         {
-            float scrollValue = Mouse.current.scroll.ReadValue().y;
-
-            if (!Mathf.Approximately(scrollValue,0f))
-            {
-                float scrollDirection = Mathf.Sign(scrollValue);
-                activeFurniture.AddScrollRotation(scrollDirection);
-            }
-
-            if (Mouse.current.leftButton.wasPressedThisFrame)
-            {
-                ConfirmPlacement();
-            }
-
-            if (Mouse.current.rightButton.wasPressedThisFrame)
-            {
-                CancelPlacement();
-                return;
-            }
+            return;
         }
 
-        if (Keyboard.current != null)
-        {
-            if (Keyboard.current[RotationKey].wasPressedThisFrame)
-            {
-                activeFurniture.RotateByStep(KeyboardRotationAmount);
-            }
+        float scrollValue =
+            input.ReadFloat(GameplayAction.Scroll);
 
-            if (Keyboard.current[CancelKey].wasPressedThisFrame)
-            {
-                CancelPlacement();
-            }
+        if (!Mathf.Approximately(scrollValue,0f))
+        {
+            float scrollDirection = Mathf.Sign(scrollValue);
+            activeFurniture.AddScrollRotation(scrollDirection);
+        }
+
+        if (input.WasPressedThisFrame(
+                GameplayAction.Primary))
+        {
+            ConfirmPlacement();
+        }
+
+        if (input.WasPressedThisFrame(
+                GameplayAction.Secondary) ||
+            input.WasPressedThisFrame(
+                GameplayAction.Cancel))
+        {
+            CancelPlacement();
+            return;
+        }
+
+        if (input.WasPressedThisFrame(
+                GameplayAction.Rotate))
+        {
+            activeFurniture.RotateByStep(
+                KeyboardRotationAmount);
         }
     }
 
@@ -237,6 +247,8 @@ public class FurniturePlacementController : MonoBehaviour
         hasValidSurface = false;
         hasSmoothedSurfacePoint = false;
         surfacePointVelocity = Vector3.zero;
+
+        ReturnToGameplayMode();
     }
 
     public void CancelPlacement()
@@ -253,6 +265,17 @@ public class FurniturePlacementController : MonoBehaviour
         hasValidSurface = false;
         hasSmoothedSurfacePoint = false;
         surfacePointVelocity = Vector3.zero;
+
+        ReturnToGameplayMode();
+    }
+
+    private static void ReturnToGameplayMode()
+    {
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.GameplayModes
+                .TrySetMode(GameplayMode.Gameplay);
+        }
     }
 
     private void OnDrawGizmos()

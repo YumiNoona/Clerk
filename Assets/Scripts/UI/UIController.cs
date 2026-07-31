@@ -48,9 +48,21 @@ public class UIController : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (IsPricePanelOpen &&
+            GameBootstrap.Instance != null &&
+            GameBootstrap.Instance.Input
+                .WasPressedThisFrame(
+                    GameplayAction.Cancel))
+        {
+            CloseUpdatePrice();
+        }
+    }
+
     public void OpenUpdatePrice(ShelfSpaceController shelf)
     {
-        if (shelf == null || shelf.Info == null || shelf.ObjectsOnShelf.Count == 0)
+        if (shelf == null || shelf.Info == null)
         {
             return;
         }
@@ -63,7 +75,9 @@ public class UIController : MonoBehaviour
         }
 
         BasePriceText.text = CurrencySymbol + shelf.Info.BasePrice.ToString("0.00");
-        CurrentPriceText.text = CurrencySymbol + shelf.Info.CurrentPrice.ToString("0.00");
+        CurrentPriceText.text =
+            CurrencySymbol +
+            shelf.CurrentPrice.ToString("0.00");
 
         if (PriceInputField != null)
         {
@@ -71,8 +85,16 @@ public class UIController : MonoBehaviour
             PriceInputField.ActivateInputField();
         }
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.GameplayModes
+                .TrySetMode(GameplayMode.PriceEditing);
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
     }
 
     public void ApplyPriceUpdate()
@@ -116,7 +138,15 @@ public class UIController : MonoBehaviour
 
         activeShelf = null;
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.GameplayModes
+                .TrySetMode(GameplayMode.Gameplay);
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
     }
 }

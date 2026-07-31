@@ -23,6 +23,9 @@ public class FurnitureDeliveryService : MonoBehaviour
             return false;
         }
 
+        deliveredFurniture.InitializePurchase(
+            purchaseData.PurchaseId);
+
         deliveredFurniture.transform.rotation = Quaternion.Euler(0f,spawnRotation.eulerAngles.y,0f);
 
         return true;

@@ -12,6 +12,10 @@ public abstract class PurchasableData : ScriptableObject
     [Header("Purchase")]
     public float PurchasePrice;
 
+    [Header("Unlock")]
+    public bool UnlockedByDefault = true;
+    public int RequiredStoreLevel = 1;
+
     public string PurchaseId
     {
         get
@@ -37,6 +41,8 @@ public abstract class PurchasableData : ScriptableObject
         }
 
         PurchasePrice = Mathf.Max(0f,PurchasePrice);
+        RequiredStoreLevel =
+            Mathf.Max(1,RequiredStoreLevel);
     }
 #endif
 }

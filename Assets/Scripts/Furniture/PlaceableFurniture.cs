@@ -1,7 +1,17 @@
+using System;
 using UnityEngine;
 
 public class PlaceableFurniture : InteractableBehaviour
 {
+    [SerializeField,HideInInspector]
+    private string furnitureId;
+
+    [SerializeField,HideInInspector]
+    private string purchaseId;
+
+    [SerializeField,HideInInspector]
+    private bool purchasedInstance;
+
     [Header("Placement Bounds")]
     public BoxCollider PlacementBounds;
 
@@ -46,8 +56,13 @@ public class PlaceableFurniture : InteractableBehaviour
         }
     }
 
+    public string FurnitureId => furnitureId;
+    public string PurchaseId => purchaseId;
+    public bool IsPurchasedInstance => purchasedInstance;
+
     private void Awake()
     {
+        EnsureId();
         CacheComponents();
         targetYRotation = transform.eulerAngles.y;
     }
@@ -100,7 +115,12 @@ public class PlaceableFurniture : InteractableBehaviour
         InteractionType interactionType)
     {
         return interactionType == InteractionType.Move
-            ? "[F] Move"
+            ? GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Input
+                    .FormatPrompt(
+                        GameplayAction.MoveFurniture,
+                        "Move")
+                : "[F] Move"
             : string.Empty;
     }
 
@@ -212,6 +232,62 @@ public class PlaceableFurniture : InteractableBehaviour
         ForceUpright();
         SetCollidersEnabled(false);
         SetPlacementValid(false);
+    }
+
+    private void OnEnable()
+    {
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.Furniture
+                .Register(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (GameBootstrap.Instance != null)
+        {
+            GameBootstrap.Instance.Furniture
+                .Unregister(this);
+        }
+    }
+
+    public void InitializePurchase(
+        string sourcePurchaseId)
+    {
+        purchaseId = sourcePurchaseId ?? string.Empty;
+        purchasedInstance = true;
+        furnitureId =
+            Guid.NewGuid().ToString("N");
+
+        ShelfSpaceController[] shelves =
+            GetComponentsInChildren<
+                ShelfSpaceController>(true);
+
+        for (int i = 0; i < shelves.Length; i++)
+        {
+            shelves[i].RegeneratePersistentId();
+        }
+
+        CheckoutCounter[] checkouts =
+            GetComponentsInChildren<
+                CheckoutCounter>(true);
+
+        for (int i = 0; i < checkouts.Length; i++)
+        {
+            checkouts[i].RegeneratePersistentId();
+        }
+    }
+
+    public void RestoreIdentity(
+        string restoredFurnitureId,
+        string restoredPurchaseId,
+        bool wasPurchased)
+    {
+        furnitureId = restoredFurnitureId;
+        purchaseId = restoredPurchaseId;
+        purchasedInstance = wasPurchased;
+        EnsureId();
     }
 
     private void SaveOriginalTransform()
@@ -632,6 +708,15 @@ public class PlaceableFurniture : InteractableBehaviour
         ClearanceBounds.enabled = false;
     }
 
+    private void EnsureId()
+    {
+        if (string.IsNullOrWhiteSpace(furnitureId))
+        {
+            furnitureId =
+                Guid.NewGuid().ToString("N");
+        }
+    }
+
     protected override void OnValidate()
     {
         base.OnValidate();
@@ -652,5 +737,7 @@ public class PlaceableFurniture : InteractableBehaviour
             ClearanceBounds.enabled = false;
             ClearanceBounds.isTrigger = true;
         }
+
+        EnsureId();
     }
 }

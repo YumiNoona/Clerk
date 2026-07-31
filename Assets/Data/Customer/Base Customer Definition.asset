@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Base Customer Definition
   m_EditorClassIdentifier: Assembly-CSharp::CustomerDefinition
   displayName: Customer
-  customerPrefab: {fileID: 0}
+  customerPrefab: {fileID: 5247314694034987657, guid: 2734b18794116a24a9995c6f8949ca9a, type: 3}
   spawnWeight: 1
   minimumWalkSpeed: 1.8
   maximumWalkSpeed: 2.8
@@ -23,3 +23,11 @@ MonoBehaviour:
   minimumScale: 0.95
   maximumScale: 1.05
   animatorOverrideController: {fileID: 0}
+  minimumShoppingLines: 1
+  maximumShoppingLines: 3
+  maximumQuantityPerProduct: 2
+  minimumBrowseTime: 1
+  maximumBrowseTime: 2.5
+  minimumPatience: 60
+  maximumPatience: 120
+  unavailableProductPenalty: 8

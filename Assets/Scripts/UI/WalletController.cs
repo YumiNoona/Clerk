@@ -1,22 +1,24 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class WalletController : MonoBehaviour
 {
     public static WalletController Instance { get; private set; }
 
+    [FormerlySerializedAs("currentMoney")]
     [SerializeField]
-    private float currentMoney = 1000f;
+    private float startingMoney = 1000f;
 
-    public float CurrentMoney
-    {
-        get
-        {
-            return currentMoney;
-        }
-    }
+    [SerializeField]
+    private long currentBalanceCents;
+
+    public float CurrentMoney => Balance.AsFloat;
+    public Money Balance =>
+        new Money(currentBalanceCents);
 
     public event Action<float> MoneyChanged;
+    public event Action<Money> BalanceChanged;
 
     private void Awake()
     {
@@ -27,40 +29,86 @@ public class WalletController : MonoBehaviour
         }
 
         Instance = this;
+
+        if (currentBalanceCents == 0 &&
+            startingMoney > 0f)
+        {
+            currentBalanceCents =
+                Money.FromFloat(startingMoney)
+                    .MinorUnits;
+        }
     }
 
     public bool CanAfford(float amount)
     {
-        return amount >= 0f && currentMoney >= amount;
+        return CanAfford(Money.FromFloat(amount));
+    }
+
+    public bool CanAfford(Money amount)
+    {
+        return !amount.IsNegative &&
+               Balance >= amount;
     }
 
     public bool TrySpendMoney(float amount)
+    {
+        return TrySpend(Money.FromFloat(amount));
+    }
+
+    public bool TrySpend(Money amount)
     {
         if (!CanAfford(amount))
         {
             return false;
         }
 
-        currentMoney -= amount;
-        MoneyChanged?.Invoke(currentMoney);
+        currentBalanceCents -= amount.MinorUnits;
+        NotifyChanged();
 
         return true;
     }
 
     public void AddMoney(float amount)
     {
-        if (amount <= 0f)
+        Add(Money.FromFloat(amount));
+    }
+
+    public void Add(Money amount)
+    {
+        if (amount.IsNegative || amount.IsZero)
         {
             return;
         }
 
-        currentMoney += amount;
-        MoneyChanged?.Invoke(currentMoney);
+        currentBalanceCents += amount.MinorUnits;
+        NotifyChanged();
     }
 
     public void SetMoney(float amount)
     {
-        currentMoney = Mathf.Max(0f,amount);
-        MoneyChanged?.Invoke(currentMoney);
+        SetBalance(Money.FromFloat(amount));
+    }
+
+    public void SetBalance(Money amount)
+    {
+        currentBalanceCents =
+            Math.Max(0,amount.MinorUnits);
+
+        NotifyChanged();
+    }
+
+    private void NotifyChanged()
+    {
+        Money balance = Balance;
+        MoneyChanged?.Invoke(balance.AsFloat);
+        BalanceChanged?.Invoke(balance);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 }

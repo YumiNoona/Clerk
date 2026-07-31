@@ -56,6 +56,44 @@ public class CustomerDefinition : ScriptableObject
     [SerializeField]
     private AnimatorOverrideController animatorOverrideController;
 
+    [Header("Shopping")]
+    [Min(1)]
+    [SerializeField]
+    private int minimumShoppingLines = 1;
+
+    [Min(1)]
+    [SerializeField]
+    private int maximumShoppingLines = 3;
+
+    [Min(1)]
+    [SerializeField]
+    private int maximumQuantityPerProduct = 2;
+
+    [Min(0f)]
+    [SerializeField]
+    private float minimumBrowseTime = 1f;
+
+    [Min(0f)]
+    [SerializeField]
+    private float maximumBrowseTime = 2.5f;
+
+    [Header("Patience")]
+    [Min(1f)]
+    [SerializeField]
+    private float minimumPatience = 60f;
+
+    [Min(1f)]
+    [SerializeField]
+    private float maximumPatience = 120f;
+
+    [Min(0f)]
+    [SerializeField]
+    private float unavailableProductPenalty = 8f;
+
+    [Min(0f)]
+    [SerializeField]
+    private float priceRejectionPenalty = 3f;
+
     public string DisplayName => displayName;
 
     public GameObject CustomerPrefab =>
@@ -67,6 +105,12 @@ public class CustomerDefinition : ScriptableObject
     public AnimatorOverrideController
         AnimatorOverrideController =>
             animatorOverrideController;
+
+    public float UnavailableProductPenalty =>
+        unavailableProductPenalty;
+
+    public float PriceRejectionPenalty =>
+        priceRejectionPenalty;
 
     public bool IsValid
     {
@@ -119,6 +163,34 @@ public class CustomerDefinition : ScriptableObject
             maximumScale);
     }
 
+    public int GetRandomShoppingLineCount()
+    {
+        return Random.Range(
+            minimumShoppingLines,
+            maximumShoppingLines + 1);
+    }
+
+    public int GetRandomDesiredQuantity()
+    {
+        return Random.Range(
+            1,
+            maximumQuantityPerProduct + 1);
+    }
+
+    public float GetRandomBrowseTime()
+    {
+        return Random.Range(
+            minimumBrowseTime,
+            maximumBrowseTime);
+    }
+
+    public float GetRandomPatience()
+    {
+        return Random.Range(
+            minimumPatience,
+            maximumPatience);
+    }
+
 #if UNITY_EDITOR
     private void OnValidate()
     {
@@ -155,6 +227,43 @@ public class CustomerDefinition : ScriptableObject
             Mathf.Max(
                 minimumScale,
                 maximumScale);
+
+        minimumShoppingLines =
+            Mathf.Max(1,minimumShoppingLines);
+
+        maximumShoppingLines =
+            Mathf.Max(
+                minimumShoppingLines,
+                maximumShoppingLines);
+
+        maximumQuantityPerProduct =
+            Mathf.Max(1,maximumQuantityPerProduct);
+
+        minimumBrowseTime =
+            Mathf.Max(0f,minimumBrowseTime);
+
+        maximumBrowseTime =
+            Mathf.Max(
+                minimumBrowseTime,
+                maximumBrowseTime);
+
+        minimumPatience =
+            Mathf.Max(1f,minimumPatience);
+
+        maximumPatience =
+            Mathf.Max(
+                minimumPatience,
+                maximumPatience);
+
+        unavailableProductPenalty =
+            Mathf.Max(
+                0f,
+                unavailableProductPenalty);
+
+        priceRejectionPenalty =
+            Mathf.Max(
+                0f,
+                priceRejectionPenalty);
     }
 #endif
 }

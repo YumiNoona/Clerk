@@ -60,23 +60,40 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        if (UIController.Instance != null && UIController.Instance.IsPricePanelOpen)
+        GameplayModeController modes =
+            GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.GameplayModes
+                : null;
+
+        if (modes != null &&
+            !modes.AllowsMovement)
         {
             return;
         }
 
-        HandleLook();
+        if (modes == null ||
+            modes.AllowsLooking)
+        {
+            HandleLook();
+        }
+
         HandleMovement();
     }
 
     private void HandleLook()
     {
-        if (LookAction == null || TheCamera == null)
+        if (TheCamera == null)
         {
             return;
         }
 
-        Vector2 lookInput = LookAction.action.ReadValue<Vector2>();
+        Vector2 lookInput =
+            GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Input.ReadVector2(
+                    GameplayAction.Look)
+                : LookAction != null
+                    ? LookAction.action.ReadValue<Vector2>()
+                    : Vector2.zero;
 
         horizontalRotation += lookInput.x * LookSpeed * Time.deltaTime;
         verticalRotation -= lookInput.y * LookSpeed * Time.deltaTime;
@@ -88,12 +105,18 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMovement()
     {
-        if (CharacterController == null || MoveAction == null)
+        if (CharacterController == null)
         {
             return;
         }
 
-        Vector2 moveInput = MoveAction.action.ReadValue<Vector2>();
+        Vector2 moveInput =
+            GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Input.ReadVector2(
+                    GameplayAction.Move)
+                : MoveAction != null
+                    ? MoveAction.action.ReadValue<Vector2>()
+                    : Vector2.zero;
         Vector3 movement = transform.forward * moveInput.y + transform.right * moveInput.x;
 
         if (movement.sqrMagnitude > 1f)
@@ -110,7 +133,16 @@ public class PlayerController : MonoBehaviour
                 verticalSpeed = -2f;
             }
 
-            if (JumpAction != null && JumpAction.action.WasPressedThisFrame())
+            bool jumpPressed =
+                GameBootstrap.Instance != null
+                    ? GameBootstrap.Instance.Input
+                        .WasPressedThisFrame(
+                            GameplayAction.Jump)
+                    : JumpAction != null &&
+                      JumpAction.action
+                          .WasPressedThisFrame();
+
+            if (jumpPressed)
             {
                 verticalSpeed = JumpForce;
             }

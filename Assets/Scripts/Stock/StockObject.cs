@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class StockObject :
     InteractableBehaviour,
@@ -99,7 +98,12 @@ public class StockObject :
     {
         return interactionType ==
                InteractionType.Primary
-            ? "[Left Click] Pick Up"
+            ? GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.Input
+                    .FormatPrompt(
+                        GameplayAction.Primary,
+                        "Pick Up")
+                : "[Left Click] Pick Up"
             : string.Empty;
     }
 
@@ -147,18 +151,16 @@ public class StockObject :
             return;
         }
 
-        if (Mouse.current != null &&
-            Mouse.current.leftButton
-                .wasPressedThisFrame)
+        if (player.WasPressed(
+                GameplayAction.Primary))
         {
             TryPlaceOnShelf(
                 player,
                 interactionRay);
         }
 
-        if (Mouse.current != null &&
-            Mouse.current.rightButton
-                .wasPressedThisFrame)
+        if (player.WasPressed(
+                GameplayAction.Secondary))
         {
             Throw(player);
         }
@@ -182,12 +184,36 @@ public class StockObject :
 
         if (canPlace)
         {
-            return PlaceOnShelfPrompt +
+            return GetPrompt(
+                       player,
+                       GameplayAction.Primary,
+                       "Place Stock",
+                       PlaceOnShelfPrompt) +
                    "\n" +
-                   ThrowPrompt;
+                   GetPrompt(
+                       player,
+                       GameplayAction.Secondary,
+                       "Throw",
+                       ThrowPrompt);
         }
 
-        return ThrowPrompt;
+        return GetPrompt(
+            player,
+            GameplayAction.Secondary,
+            "Throw",
+            ThrowPrompt);
+    }
+
+    private static string GetPrompt(
+        PlayerInteractionController player,
+        GameplayAction action,
+        string description,
+        string legacyPrompt)
+    {
+        return player != null &&
+               GameBootstrap.Instance != null
+            ? player.FormatPrompt(action,description)
+            : legacyPrompt;
     }
 
     private void TryPlaceOnShelf(

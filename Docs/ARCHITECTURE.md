@@ -6,37 +6,28 @@ remain playable throughout the migration.
 
 ## Current snapshot
 
-As of 2026-07-31, the project contains:
-
-- 40 C# scripts and roughly 7,350 lines of C#
-- one gameplay scene in the build
-- working player movement, interaction, carrying, stocking, pricing, purchasing,
-  delivery, and furniture placement foundations
-- customer definitions, points, navigation, animation, and visual variation
-- no runtime assembly definitions and no automated tests
-- no customer shopping lifecycle, checkout loop, or persistence layer yet
+As of 2026-07-31, the first complete store loop and its supporting services are
+implemented. Runtime, editor, and test code have separate assemblies. Customer
+shopping, checkout, economy, persistence, progression, objectives, staff,
+desktop UI, and mobile UI now build on one composition root.
 
 The existing design has good reusable building blocks. `InteractableBehaviour`,
 `IHeldItem`, stable asset GUID-backed product and purchase IDs, weighted customer
 definitions, and the navigation/animation wrappers are all worth keeping.
 
-## The main architectural issue
+## Architectural direction
 
-Several components currently combine four different responsibilities:
+The migration targets four responsibilities that were previously combined:
 
 1. reading player input
 2. applying game rules and changing state
 3. manipulating scene objects and physics
 4. updating UI or visual presentation
 
-This creates circular dependencies between the current folders. For example,
-Core depends on Interaction, Stock, Furniture, and UI, while Stock, Interaction,
-and UI also depend back on Core. Folder names therefore do not currently
-represent enforceable module boundaries.
-
-The goal is not to replace every MonoBehaviour with an interface. The goal is to
-move durable game rules and state out of scene components, then keep
-MonoBehaviours as thin Unity adapters.
+Runtime prices, money, baskets, reservations, queues, progression, objectives,
+and save DTOs are now separate state/services. Larger Unity components remain
+adapters for authored transforms, colliders, renderers, navigation, and
+animation and can be split further without changing their public system APIs.
 
 ## Non-negotiable rules
 
@@ -45,9 +36,8 @@ MonoBehaviours as thin Unity adapters.
 Product, customer, box-layout, furniture, and purchase assets are authoring
 data. Runtime systems may read them, but must not change them.
 
-`StockInfo.CurrentPrice` currently violates this rule. A shelf price edit writes
-to the product asset. Price must instead live in a runtime `ProductState`,
-identified by `StockInfo.ProductId`.
+Initial price is authored on `StockInfo`; the mutable price lives in
+`ProductStateService`, identified by `StockInfo.ProductId`.
 
 ### Runtime state has stable IDs
 

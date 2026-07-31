@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class PlayerInteractionController : MonoBehaviour
 {
@@ -31,6 +30,10 @@ public class PlayerInteractionController : MonoBehaviour
     private readonly StringBuilder promptBuilder =
         new StringBuilder();
 
+    private int cachedPromptFrame = -1;
+    private string cachedPrompt = string.Empty;
+    private MonoBehaviour highlightedTarget;
+
     private static readonly InteractionType[]
         PromptInteractionTypes =
         {
@@ -43,12 +46,22 @@ public class PlayerInteractionController : MonoBehaviour
     public IHeldItem HeldItem => heldItem;
     public bool IsHoldingAnything => heldItem != null;
 
+    public event Action<MonoBehaviour>
+        HighlightTargetChanged;
+
     private void Awake()
     {
         if (TheCamera == null)
         {
             TheCamera =
                 GetComponentInChildren<Camera>();
+        }
+
+        if (GetComponent<
+                InteractionHighlightPresenter>() == null)
+        {
+            gameObject.AddComponent<
+                InteractionHighlightPresenter>();
         }
     }
 
@@ -57,6 +70,7 @@ public class PlayerInteractionController : MonoBehaviour
         if (!CanProcessInteraction() ||
             TheCamera == null)
         {
+            SetHighlightedTarget(null);
             return;
         }
 
@@ -65,11 +79,55 @@ public class PlayerInteractionController : MonoBehaviour
 
         if (heldItem != null)
         {
+            SetHighlightedTarget(null);
             HandleHeldItem(interactionRay);
             return;
         }
 
+        UpdateHighlightedTarget(interactionRay);
         HandleWorldInteraction(interactionRay);
+    }
+
+    private void UpdateHighlightedTarget(
+        Ray interactionRay)
+    {
+        InteractableCandidate best = default;
+        bool found = false;
+
+        for (int i = 0;
+             i < PromptInteractionTypes.Length;
+             i++)
+        {
+            if (!TryGetBestCandidate(
+                    interactionRay,
+                    PromptInteractionTypes[i],
+                    out InteractableCandidate candidate))
+            {
+                continue;
+            }
+
+            if (!found ||
+                CompareCandidates(candidate,best) < 0)
+            {
+                best = candidate;
+                found = true;
+            }
+        }
+
+        SetHighlightedTarget(
+            found ? best.Component : null);
+    }
+
+    private void SetHighlightedTarget(
+        MonoBehaviour target)
+    {
+        if (highlightedTarget == target)
+        {
+            return;
+        }
+
+        highlightedTarget = target;
+        HighlightTargetChanged?.Invoke(target);
     }
 
     private Ray GetInteractionRay()
@@ -80,6 +138,17 @@ public class PlayerInteractionController : MonoBehaviour
 
     private bool CanProcessInteraction()
     {
+        GameplayModeController modes =
+            GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.GameplayModes
+                : null;
+
+        if (modes != null)
+        {
+            return modes.AllowsWorldInteraction;
+        }
+
+        // Legacy fallback for scenes loaded without the runtime bootstrap.
         if (UIController.Instance != null &&
             UIController.Instance.IsPricePanelOpen)
         {
@@ -113,40 +182,29 @@ public class PlayerInteractionController : MonoBehaviour
     private void HandleWorldInteraction(
         Ray interactionRay)
     {
-        if (Mouse.current != null)
+        if (WasPressed(GameplayAction.Primary))
         {
-            if (Mouse.current.leftButton
-                .wasPressedThisFrame)
-            {
-                TryInteract(
-                    interactionRay,
-                    InteractionType.Primary);
-            }
-
-            if (Mouse.current.rightButton
-                .wasPressedThisFrame)
-            {
-                TryInteract(
-                    interactionRay,
-                    InteractionType.Secondary);
-            }
+            TryInteract(
+                interactionRay,
+                InteractionType.Primary);
         }
 
-        if (Keyboard.current == null)
+        if (WasPressed(GameplayAction.Secondary))
         {
-            return;
+            TryInteract(
+                interactionRay,
+                InteractionType.Secondary);
         }
 
-        if (Keyboard.current.eKey
-            .wasPressedThisFrame)
+        if (WasPressed(GameplayAction.Use))
         {
             TryInteract(
                 interactionRay,
                 InteractionType.Use);
         }
 
-        if (Keyboard.current.fKey
-            .wasPressedThisFrame)
+        if (WasPressed(
+                GameplayAction.MoveFurniture))
         {
             TryInteract(
                 interactionRay,
@@ -156,10 +214,18 @@ public class PlayerInteractionController : MonoBehaviour
 
     public string GetCurrentPrompt()
     {
+        if (cachedPromptFrame == Time.frameCount)
+        {
+            return cachedPrompt;
+        }
+
+        cachedPromptFrame = Time.frameCount;
+
         if (!CanProcessInteraction() ||
             TheCamera == null)
         {
-            return string.Empty;
+            cachedPrompt = string.Empty;
+            return cachedPrompt;
         }
 
         Ray interactionRay =
@@ -171,12 +237,15 @@ public class PlayerInteractionController : MonoBehaviour
                 unityObject == null)
             {
                 heldItem = null;
-                return string.Empty;
+                cachedPrompt = string.Empty;
+                return cachedPrompt;
             }
 
-            return heldItem.GetHeldPrompt(
+            cachedPrompt = heldItem.GetHeldPrompt(
                 this,
                 interactionRay);
+
+            return cachedPrompt;
         }
 
         promptBuilder.Clear();
@@ -209,7 +278,8 @@ public class PlayerInteractionController : MonoBehaviour
             AppendUniquePrompt(prompt);
         }
 
-        return promptBuilder.ToString();
+        cachedPrompt = promptBuilder.ToString();
+        return cachedPrompt;
     }
 
     private void AppendUniquePrompt(string prompt)
@@ -260,7 +330,40 @@ public class PlayerInteractionController : MonoBehaviour
         candidate.Interactable.Interact(
             candidate.Context);
 
+        cachedPromptFrame = -1;
         return true;
+    }
+
+    public bool WasPressed(GameplayAction action)
+    {
+        return GameBootstrap.Instance != null &&
+               GameBootstrap.Instance.Input
+                   .WasPressedThisFrame(action);
+    }
+
+    public bool IsPressed(GameplayAction action)
+    {
+        return GameBootstrap.Instance != null &&
+               GameBootstrap.Instance.Input
+                   .IsPressed(action);
+    }
+
+    public float ReadFloat(GameplayAction action)
+    {
+        return GameBootstrap.Instance != null
+            ? GameBootstrap.Instance.Input
+                .ReadFloat(action)
+            : 0f;
+    }
+
+    public string FormatPrompt(
+        GameplayAction action,
+        string description)
+    {
+        return GameBootstrap.Instance != null
+            ? GameBootstrap.Instance.Input
+                .FormatPrompt(action,description)
+            : "[" + action + "] " + description;
     }
 
     private bool TryGetBestCandidate(

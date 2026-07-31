@@ -259,7 +259,7 @@ MonoBehaviour:
   navMeshAreaMask: -1
   updateRotationWhileMoving: 1
   manualRotationSpeed: 540
-  showDebugLogs: 1
+  showDebugLogs: 0
   drawDestinationGizmo: 1
 --- !u!114 &7577465496870987456
 MonoBehaviour:
@@ -282,10 +282,10 @@ MonoBehaviour:
   browsingParameter: 
   waitingParameter: 
   checkoutParameter: 
-  pickupTrigger: Pickup
-  checkoutTrigger: Checkout
-  greetingTrigger: Greeting
-  reactionTrigger: Reaction
+  pickupTrigger: 
+  checkoutTrigger: 
+  greetingTrigger: 
+  reactionTrigger: 
   disableRootMotion: 1
   validateAnimatorParameters: 1
   showParameterWarnings: 1
