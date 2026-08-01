@@ -24,11 +24,16 @@ public static class StreetSceneSetup
         Transform player = Require("Gameplay/Player");
         Transform cameraTransform = Require("Gameplay/Player/Main Camera");
         Transform furniturePoint = Require("Gameplay/Player/Main Camera/FurniturePoint");
+        Transform mobilePoint = cameraTransform != null
+            ? GetOrCreatePoint(
+                cameraTransform,
+                "MobilePoint",
+                new Vector3(0.32f,-0.28f,0.65f),
+                new Vector3(10f,0f,0f))
+            : null;
         Transform stockPoint = Require("Gameplay/Delivery Points/Stock Delivery Point");
         Transform furnitureDeliveryPoint = Require("Gameplay/Delivery Points/Furniture Delivery Point");
         Transform purchaseObject = Require("Gameplay/Scene Systems/Purchase Service");
-        Transform stockServiceObject = Require("Gameplay/Scene Systems/Stock Delivery Service");
-        Transform furnitureServiceObject = Require("Gameplay/Scene Systems/Furniture Delivery Service");
         Transform placementControllerObject = Require("Gameplay/Scene Systems/Furniture Placement Controller");
         Transform placementAreaObject = Require("Store/Zones/Furniture Placement Area");
         Transform entrance = Require("Store/Navigation/Customer Flow/Entrances/Main Entrance");
@@ -37,8 +42,8 @@ public static class StreetSceneSetup
         Transform despawnPoint = Require("Store/Navigation/Customer Flow/Exits/Main Exit/Despawn Point");
 
         if (new[] { player, cameraTransform, furniturePoint, stockPoint,
-                furnitureDeliveryPoint, purchaseObject, stockServiceObject,
-                furnitureServiceObject, placementControllerObject,
+                furnitureDeliveryPoint, purchaseObject,
+                placementControllerObject,
                 placementAreaObject, entrance, insidePoint, exit, despawnPoint }
             .Any(item => item == null))
         {
@@ -46,10 +51,10 @@ public static class StreetSceneSetup
             return;
         }
 
-        StockDeliveryService stockService = GetOrAdd<StockDeliveryService>(stockServiceObject.gameObject);
+        StockDeliveryService stockService = GetOrAdd<StockDeliveryService>(purchaseObject.gameObject);
         stockService.DeliverySpawnPoint = stockPoint;
 
-        FurnitureDeliveryService furnitureService = GetOrAdd<FurnitureDeliveryService>(furnitureServiceObject.gameObject);
+        FurnitureDeliveryService furnitureService = GetOrAdd<FurnitureDeliveryService>(purchaseObject.gameObject);
         furnitureService.FurnitureSpawnPoint = furnitureDeliveryPoint;
 
         FurniturePlacementArea placementArea = GetOrAdd<FurniturePlacementArea>(placementAreaObject.gameObject);
@@ -68,6 +73,9 @@ public static class StreetSceneSetup
 
         PlayerInteractionController interactionController =
             GetOrAdd<PlayerInteractionController>(player.gameObject);
+        interactionController.TheCamera =
+            cameraTransform.GetComponent<Camera>();
+        interactionController.MobileHoldPoint = mobilePoint;
 
         interactionController.InteractionMask = LayerMask.GetMask(
             "Stock",
@@ -243,6 +251,28 @@ public static class StreetSceneSetup
             Debug.LogError($"Missing Street hierarchy object: {path}");
         }
         return result;
+    }
+
+    private static Transform GetOrCreatePoint(
+        Transform parent,
+        string pointName,
+        Vector3 localPosition,
+        Vector3 localEulerAngles)
+    {
+        Transform point = parent.Find(pointName);
+        if (point != null)
+        {
+            return point;
+        }
+
+        GameObject pointObject = new GameObject(pointName);
+        Undo.RegisterCreatedObjectUndo(
+            pointObject,"Create " + pointName);
+        point = pointObject.transform;
+        point.SetParent(parent,false);
+        point.localPosition = localPosition;
+        point.localEulerAngles = localEulerAngles;
+        return point;
     }
 
     private static Transform Find(string path)

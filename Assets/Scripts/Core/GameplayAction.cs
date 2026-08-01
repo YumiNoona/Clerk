@@ -10,5 +10,6 @@ public enum GameplayAction
     Rotate,
     Cancel,
     Pause,
+    Mobile,
     Scroll
 }

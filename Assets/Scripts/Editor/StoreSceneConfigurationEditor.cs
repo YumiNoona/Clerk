@@ -25,6 +25,8 @@ public static class StorePointHierarchyMigration
             return;
         }
 
+        ConsolidateDeliveryServices(configuration);
+
         Transform zones = configuration.transform.root.Find("Store/Zones");
         bool removedUnusedZone = false;
 
@@ -87,6 +89,66 @@ public static class StorePointHierarchyMigration
 
         return false;
     }
+
+    private static void ConsolidateDeliveryServices(
+        StoreSceneConfiguration configuration)
+    {
+        PurchaseService purchase =
+            Object.FindAnyObjectByType<PurchaseService>();
+
+        if (purchase == null)
+        {
+            return;
+        }
+
+        StockDeliveryService oldStock = purchase.StockDeliveryService != null
+            ? purchase.StockDeliveryService
+            : Object.FindAnyObjectByType<StockDeliveryService>();
+        FurnitureDeliveryService oldFurniture =
+            purchase.FurnitureDeliveryService != null
+                ? purchase.FurnitureDeliveryService
+                : Object.FindAnyObjectByType<FurnitureDeliveryService>();
+
+        StockDeliveryService stock =
+            purchase.GetComponent<StockDeliveryService>();
+        if (stock == null)
+        {
+            stock = Undo.AddComponent<StockDeliveryService>(purchase.gameObject);
+        }
+
+        FurnitureDeliveryService furniture =
+            purchase.GetComponent<FurnitureDeliveryService>();
+        if (furniture == null)
+        {
+            furniture = Undo.AddComponent<FurnitureDeliveryService>(purchase.gameObject);
+        }
+
+        if (oldStock != null && oldStock != stock)
+        {
+            stock.DeliverySpawnPoint = oldStock.DeliverySpawnPoint;
+        }
+
+        if (oldFurniture != null && oldFurniture != furniture)
+        {
+            furniture.FurnitureSpawnPoint = oldFurniture.FurnitureSpawnPoint;
+        }
+
+        purchase.StockDeliveryService = stock;
+        purchase.FurnitureDeliveryService = furniture;
+        EditorUtility.SetDirty(purchase);
+
+        if (oldStock != null && oldStock.gameObject != purchase.gameObject)
+        {
+            Undo.DestroyObjectImmediate(oldStock.gameObject);
+        }
+
+        if (oldFurniture != null && oldFurniture.gameObject != purchase.gameObject)
+        {
+            Undo.DestroyObjectImmediate(oldFurniture.gameObject);
+        }
+
+        EditorSceneManager.MarkSceneDirty(configuration.gameObject.scene);
+    }
 }
 
 [CustomEditor(typeof(StoreSceneConfiguration))]
@@ -96,6 +158,7 @@ public sealed class StoreSceneConfigurationEditor : Editor
     private SerializedProperty spawns;
     private SerializedProperty entrance;
     private SerializedProperty inside;
+    private SerializedProperty clerkPoint;
     private SerializedProperty queue;
     private SerializedProperty exit;
     private SerializedProperty despawn;
@@ -106,6 +169,7 @@ public sealed class StoreSceneConfigurationEditor : Editor
         spawns = serializedObject.FindProperty("customerSpawns");
         entrance = serializedObject.FindProperty("entranceWaitPoint");
         inside = serializedObject.FindProperty("insidePoint");
+        clerkPoint = serializedObject.FindProperty("checkoutClerkPoint");
         queue = serializedObject.FindProperty("checkoutQueue");
         exit = serializedObject.FindProperty("exitPoint");
         despawn = serializedObject.FindProperty("despawnPoint");
@@ -134,7 +198,7 @@ public sealed class StoreSceneConfigurationEditor : Editor
         if (GUILayout.Button("+ Checkout Queue"))
         {
             AddPose(queue,new Vector3(0f,0f,-queue.arraySize));
-            selectedPoint = spawns.arraySize + 2 + queue.arraySize - 1;
+            selectedPoint = spawns.arraySize + 3 + queue.arraySize - 1;
             FinishAddAndFocus(
                 queue.GetArrayElementAtIndex(queue.arraySize - 1)
                     .FindPropertyRelative("Position").vector3Value);
@@ -143,7 +207,7 @@ public sealed class StoreSceneConfigurationEditor : Editor
         {
             AddVector(pedestrianTrack,new Vector3(pedestrianTrack.arraySize * 3f,0f,0f));
             selectedPoint = spawns.arraySize + queue.arraySize +
-                4 + pedestrianTrack.arraySize - 1;
+                5 + pedestrianTrack.arraySize - 1;
             FinishAddAndFocus(
                 pedestrianTrack.GetArrayElementAtIndex(
                     pedestrianTrack.arraySize - 1).vector3Value);
@@ -230,6 +294,16 @@ public sealed class StoreSceneConfigurationEditor : Editor
             DrawPoseHandle(root,inside,"INSIDE",insideColor);
         cursor++;
 
+        Color clerkColor = new Color(0.25f,0.55f,1f);
+        DrawSelectableSphere(
+            GetWorldPosition(root,clerkPoint),
+            "CHECKOUT CLERK",
+            clerkColor,
+            cursor);
+        if (selectedPoint == cursor)
+            DrawPoseHandle(root,clerkPoint,"CHECKOUT CLERK",clerkColor);
+        cursor++;
+
         for (int i = 0; i < queue.arraySize; i++)
         {
             SerializedProperty pose = queue.GetArrayElementAtIndex(i);
@@ -295,7 +369,7 @@ public sealed class StoreSceneConfigurationEditor : Editor
     private string[] BuildPointNames()
     {
         int count = spawns.arraySize + queue.arraySize +
-            pedestrianTrack.arraySize + 4;
+            pedestrianTrack.arraySize + 5;
         string[] names = new string[Mathf.Max(1,count)];
         int cursor = 0;
 
@@ -303,6 +377,7 @@ public sealed class StoreSceneConfigurationEditor : Editor
             names[cursor++] = "Customer Spawn " + (i + 1);
         names[cursor++] = "Entrance";
         names[cursor++] = "Inside";
+        names[cursor++] = "Checkout Clerk";
         for (int i = 0; i < queue.arraySize; i++)
             names[cursor++] = "Checkout Queue " + (i + 1);
         names[cursor++] = "Exit";

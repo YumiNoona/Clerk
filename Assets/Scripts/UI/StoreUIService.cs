@@ -55,6 +55,13 @@ public sealed class StoreUIService : MonoBehaviour
     private TextMeshProUGUI priceDetailsText;
     private GameObject mobileModelPrefab;
     private GameObject mobileModelInstance;
+    private StoreUIAuthoring authoredUI;
+    private Canvas mobileScreenCanvas;
+    private Transform deviceScreenParent;
+    private Transform mobileHoldPoint;
+    private PlayerInteractionController mobilePresentation;
+    private RectTransform[] authoredApplicationPages;
+    private RectTransform[] authoredApplicationContents;
 
     private void Awake()
     {
@@ -66,12 +73,18 @@ public sealed class StoreUIService : MonoBehaviour
 
     private void Start()
     {
-        BuildCanvas();
-        BuildHud();
-        BuildPauseMenu();
-        BuildMainMenu();
-        BuildNotificationLayer();
-        BuildPriceEditor();
+        if (!TryBindAuthoredUI())
+        {
+            Debug.LogWarning(
+                "Authored Store UI was not found. Using the runtime fallback.",
+                this);
+            BuildCanvas();
+            BuildHud();
+            BuildPauseMenu();
+            BuildMainMenu();
+            BuildNotificationLayer();
+            BuildPriceEditor();
+        }
 
         GameBootstrap.Instance.GameplayModes.ModeChanged +=
             HandleModeChanged;
@@ -93,6 +106,14 @@ public sealed class StoreUIService : MonoBehaviour
     private void Update()
     {
         UpdateHud();
+
+        if (GameBootstrap.Instance != null &&
+            GameBootstrap.Instance.Input.WasPressedThisFrame(
+                GameplayAction.Mobile))
+        {
+            ToggleMobile();
+            return;
+        }
 
         if (priceEditorRoot != null &&
             priceEditorRoot.gameObject.activeSelf &&
@@ -208,6 +229,12 @@ public sealed class StoreUIService : MonoBehaviour
         SetMobileModelVisible(
             kind == StoreDeviceKind.Mobile);
         BuildDeviceShell(kind);
+
+        if (kind == StoreDeviceKind.Mobile)
+        {
+            AttachDeviceToMobileScreen();
+        }
+
         ShowApplication(StoreApplication.Overview);
         deviceRoot.gameObject.SetActive(true);
 
@@ -242,6 +269,8 @@ public sealed class StoreUIService : MonoBehaviour
     {
         if (!visible)
         {
+            RestoreDeviceToScreenCanvas();
+
             if (mobileModelInstance != null)
             {
                 mobileModelInstance.SetActive(false);
@@ -254,33 +283,149 @@ public sealed class StoreUIService : MonoBehaviour
             mobileModelPrefab != null &&
             Camera.main != null)
         {
+            ResolveMobileHoldPoint();
             mobileModelInstance =
                 Instantiate(
                     mobileModelPrefab,
-                    Camera.main.transform);
+                    mobileHoldPoint != null
+                        ? mobileHoldPoint
+                        : Camera.main.transform);
 
             mobileModelInstance.name =
                 "Player Mobile Device";
 
             mobileModelInstance.transform.localPosition =
-                new Vector3(0.42f,-0.28f,0.75f);
+                mobilePresentation != null
+                    ? mobilePresentation.MobileModelLocalPosition
+                    : Vector3.zero;
 
             mobileModelInstance.transform.localRotation =
-                Quaternion.Euler(8f,180f,0f);
+                Quaternion.Euler(
+                    mobilePresentation != null
+                        ? mobilePresentation.MobileModelLocalEulerAngles
+                        : new Vector3(0f,180f,0f));
 
             mobileModelInstance.transform.localScale =
-                Vector3.one * 0.12f;
+                Vector3.one * (mobilePresentation != null
+                    ? mobilePresentation.MobileModelScale
+                    : 0.32f);
         }
 
         if (mobileModelInstance != null)
         {
             mobileModelInstance.SetActive(true);
+            AttachDeviceToMobileScreen();
+        }
+    }
+
+    private void AttachDeviceToMobileScreen()
+    {
+        if (deviceRoot == null || Camera.main == null)
+        {
+            return;
+        }
+
+        if (mobileScreenCanvas == null)
+        {
+            ResolveMobileHoldPoint();
+            GameObject screen = new GameObject(
+                "Mobile Screen UI",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(GraphicRaycaster));
+
+            screen.transform.SetParent(
+                mobileHoldPoint != null
+                    ? mobileHoldPoint
+                    : Camera.main.transform,
+                false);
+            RectTransform screenRect =
+                screen.GetComponent<RectTransform>();
+            screenRect.localPosition =
+                mobilePresentation != null
+                    ? mobilePresentation.MobileScreenLocalPosition
+                    : new Vector3(0f,0f,-0.045f);
+            screenRect.localRotation = Quaternion.Euler(
+                mobilePresentation != null
+                    ? mobilePresentation.MobileScreenLocalEulerAngles
+                    : Vector3.zero);
+            screenRect.localScale = Vector3.one *
+                (mobilePresentation != null
+                    ? mobilePresentation.MobileScreenScale
+                    : 0.0003f);
+            screenRect.sizeDelta = mobilePresentation != null
+                ? mobilePresentation.MobileScreenSize
+                : new Vector2(520f,900f);
+
+            mobileScreenCanvas = screen.GetComponent<Canvas>();
+            mobileScreenCanvas.renderMode = RenderMode.WorldSpace;
+            mobileScreenCanvas.worldCamera = Camera.main;
+            mobileScreenCanvas.sortingOrder = 110;
+        }
+
+        if (deviceScreenParent == null)
+        {
+            deviceScreenParent = deviceRoot.parent;
+        }
+
+        deviceRoot.SetParent(mobileScreenCanvas.transform,false);
+        UIFactory.Stretch(deviceRoot);
+        mobileScreenCanvas.gameObject.SetActive(true);
+    }
+
+    private void ResolveMobileHoldPoint()
+    {
+        if (mobileHoldPoint != null)
+        {
+            return;
+        }
+
+        PlayerInteractionController player =
+            FindAnyObjectByType<PlayerInteractionController>();
+
+        mobilePresentation = player;
+
+        mobileHoldPoint = player != null
+            ? player.MobileHoldPoint
+            : Camera.main != null
+                ? Camera.main.transform
+                : null;
+    }
+
+    private void RestoreDeviceToScreenCanvas()
+    {
+        if (deviceRoot != null && deviceScreenParent != null)
+        {
+            deviceRoot.SetParent(deviceScreenParent,false);
+            UIFactory.Stretch(deviceRoot);
+        }
+
+        if (mobileScreenCanvas != null)
+        {
+            mobileScreenCanvas.gameObject.SetActive(false);
         }
     }
 
     public void ShowApplication(
         StoreApplication application)
     {
+        if (authoredUI != null)
+        {
+            int pageIndex = GetNavigationApplicationIndex(application);
+
+            if (pageIndex >= 0 &&
+                pageIndex < authoredApplicationPages.Length)
+            {
+                for (int i = 0; i < authoredApplicationPages.Length; i++)
+                {
+                    authoredApplicationPages[i].gameObject.SetActive(
+                        i == pageIndex);
+                }
+
+                deviceContent = authoredApplicationContents[pageIndex];
+            }
+        }
+
         if (deviceContent == null)
         {
             return;
@@ -688,6 +833,182 @@ public sealed class StoreUIService : MonoBehaviour
         notificationRoot.gameObject.SetActive(false);
     }
 
+    private void ToggleMobile()
+    {
+        if (showingMainMenu)
+        {
+            return;
+        }
+
+        if (deviceRoot != null &&
+            deviceRoot.gameObject.activeSelf &&
+            activeDevice == StoreDeviceKind.Mobile)
+        {
+            CloseDevice();
+            return;
+        }
+
+        GameplayMode mode =
+            GameBootstrap.Instance.GameplayModes.CurrentMode;
+
+        if (mode != GameplayMode.Gameplay &&
+            mode != GameplayMode.Paused)
+        {
+            return;
+        }
+
+        PlayerInteractionController player =
+            FindAnyObjectByType<PlayerInteractionController>();
+
+        if (player != null && player.IsHoldingAnything)
+        {
+            GameBootstrap.Instance.Notifications.Show(
+                "Put down the held item before using the phone.",
+                NotificationKind.Warning);
+            return;
+        }
+
+        if (mode == GameplayMode.Paused)
+        {
+            GameBootstrap.Instance.GameplayModes.Resume();
+        }
+
+        OpenDevice(StoreDeviceKind.Mobile);
+    }
+
+    private bool TryBindAuthoredUI()
+    {
+        authoredUI = FindAnyObjectByType<StoreUIAuthoring>(
+            FindObjectsInactive.Include);
+
+        if (authoredUI == null || !authoredUI.IsComplete)
+        {
+            authoredUI = null;
+            return false;
+        }
+
+        canvas = authoredUI.Canvas;
+        hudRoot = authoredUI.HudRoot;
+        pauseRoot = authoredUI.PauseRoot;
+        mainMenuRoot = authoredUI.MainMenuRoot;
+        notificationRoot = authoredUI.NotificationRoot;
+        priceEditorRoot = authoredUI.PriceEditorRoot;
+        deviceRoot = authoredUI.DeviceRoot;
+        deviceContent = authoredUI.DeviceContent;
+        authoredApplicationPages = authoredUI.ApplicationPages;
+        authoredApplicationContents = authoredUI.ApplicationContents;
+        moneyText = authoredUI.MoneyText;
+        clockText = authoredUI.ClockText;
+        statusText = authoredUI.StatusText;
+        deviceTitle = authoredUI.DeviceTitle;
+        mainMenuStartButton = authoredUI.StartButton;
+        priceInput = authoredUI.PriceInput;
+        priceDetailsText = authoredUI.PriceDetailsText;
+
+        BindButton(authoredUI.StartButton,StartStore);
+        BindButton(authoredUI.ContinueButton,() =>
+        {
+            LoadSlot(0);
+            StartStore();
+        });
+        authoredUI.ContinueButton.gameObject.SetActive(
+            GameBootstrap.Instance.Saves.SaveExists(0));
+        BindButton(authoredUI.MainSettingsButton,() =>
+        {
+            showingMainMenu = false;
+            mainMenuRoot.gameObject.SetActive(false);
+            GameBootstrap.Instance.GameplayModes.Resume();
+            OpenDevice(StoreDeviceKind.Desktop);
+            ShowApplication(StoreApplication.Settings);
+        });
+        BindButton(authoredUI.MainQuitButton,QuitGame);
+
+        BindButton(authoredUI.ResumeButton,() =>
+            GameBootstrap.Instance.GameplayModes.Resume());
+        BindButton(authoredUI.DesktopButton,() =>
+        {
+            GameBootstrap.Instance.GameplayModes.Resume();
+            OpenDevice(StoreDeviceKind.Desktop);
+        });
+        BindButton(authoredUI.PhoneButton,() =>
+        {
+            GameBootstrap.Instance.GameplayModes.Resume();
+            OpenDevice(StoreDeviceKind.Mobile);
+        });
+        BindButton(authoredUI.SaveButton,() => SaveSlot(0));
+        BindButton(authoredUI.LoadButton,() => LoadSlot(0));
+        BindButton(authoredUI.PauseQuitButton,QuitGame);
+        BindButton(authoredUI.ApplyPriceButton,ApplyPriceEditor);
+        BindButton(authoredUI.CancelPriceButton,ClosePriceEditor);
+        BindButton(authoredUI.DeviceCloseButton,CloseDevice);
+
+        StoreApplication[] applications = GetNavigationApplications();
+        int count = Mathf.Min(
+            applications.Length,
+            authoredUI.ApplicationButtons.Length);
+
+        for (int i = 0; i < count; i++)
+        {
+            StoreApplication application = applications[i];
+            BindButton(
+                authoredUI.ApplicationButtons[i],
+                () => ShowApplication(application));
+        }
+
+        priceInput.onSubmit.RemoveAllListeners();
+        priceInput.onSubmit.AddListener(_ => ApplyPriceEditor());
+        pauseRoot.gameObject.SetActive(false);
+        mainMenuRoot.gameObject.SetActive(false);
+        priceEditorRoot.gameObject.SetActive(false);
+        notificationRoot.gameObject.SetActive(false);
+        deviceRoot.gameObject.SetActive(false);
+        return true;
+    }
+
+    private static void BindButton(
+        Button button,
+        UnityEngine.Events.UnityAction action)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(action);
+    }
+
+    private static StoreApplication[] GetNavigationApplications()
+    {
+        return new[]
+        {
+            StoreApplication.Overview,
+            StoreApplication.Supply,
+            StoreApplication.Register,
+            StoreApplication.Bank,
+            StoreApplication.History,
+            StoreApplication.Tasks,
+            StoreApplication.Settings
+        };
+    }
+
+    private static int GetNavigationApplicationIndex(
+        StoreApplication application)
+    {
+        StoreApplication[] applications =
+            GetNavigationApplications();
+
+        for (int i = 0; i < applications.Length; i++)
+        {
+            if (applications[i] == application)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     private void BuildPriceEditor()
     {
         if (canvas == null || priceEditorRoot != null)
@@ -766,6 +1087,12 @@ public sealed class StoreUIService : MonoBehaviour
 
     private void BuildDeviceShell(StoreDeviceKind kind)
     {
+        if (authoredUI != null)
+        {
+            ConfigureAuthoredDevice(kind);
+            return;
+        }
+
         if (deviceRoot != null)
         {
             Destroy(deviceRoot.gameObject);
@@ -903,15 +1230,7 @@ public sealed class StoreUIService : MonoBehaviour
         }
 
         StoreApplication[] apps =
-        {
-            StoreApplication.Overview,
-            StoreApplication.Supply,
-            StoreApplication.Register,
-            StoreApplication.Bank,
-            StoreApplication.History,
-            StoreApplication.Tasks,
-            StoreApplication.Settings
-        };
+            GetNavigationApplications();
 
         for (int i = 0; i < apps.Length; i++)
         {
@@ -944,6 +1263,40 @@ public sealed class StoreUIService : MonoBehaviour
                 "Scrollable Content");
 
         UIFactory.Vertical(deviceContent,10f,18f);
+    }
+
+    private void ConfigureAuthoredDevice(StoreDeviceKind kind)
+    {
+        UIFactory.Clear(deviceContent);
+        RectTransform frame = authoredUI.DeviceFrame;
+
+        if (kind == StoreDeviceKind.Desktop)
+        {
+            frame.anchorMin = new Vector2(0.06f,0.06f);
+            frame.anchorMax = new Vector2(0.94f,0.94f);
+            authoredUI.DeviceNavigation.anchorMin = Vector2.zero;
+            authoredUI.DeviceNavigation.anchorMax = new Vector2(0.18f,0.91f);
+            authoredUI.DeviceBody.anchorMin = new Vector2(0.18f,0f);
+            authoredUI.DeviceBody.anchorMax = new Vector2(1f,0.91f);
+            authoredUI.DeviceBrand.text = "CLERK OS";
+        }
+        else
+        {
+            frame.anchorMin = new Vector2(0.28f,0.04f);
+            frame.anchorMax = new Vector2(0.72f,0.96f);
+            authoredUI.DeviceNavigation.anchorMin = Vector2.zero;
+            authoredUI.DeviceNavigation.anchorMax = new Vector2(0.25f,0.91f);
+            authoredUI.DeviceBody.anchorMin = new Vector2(0.25f,0f);
+            authoredUI.DeviceBody.anchorMax = new Vector2(1f,0.91f);
+            authoredUI.DeviceBrand.text = "CLERK";
+        }
+
+        frame.offsetMin = Vector2.zero;
+        frame.offsetMax = Vector2.zero;
+        authoredUI.DeviceNavigation.offsetMin = Vector2.zero;
+        authoredUI.DeviceNavigation.offsetMax = Vector2.zero;
+        authoredUI.DeviceBody.offsetMin = Vector2.zero;
+        authoredUI.DeviceBody.offsetMax = Vector2.zero;
     }
 
     private void BuildOverview(Transform parent)

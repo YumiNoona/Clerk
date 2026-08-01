@@ -18,6 +18,18 @@ public class PlayerInteractionController : MonoBehaviour
     [Header("Hold Points")]
     public Transform HoldPoint;
     public Transform BoxHoldPoint;
+    public Transform MobileHoldPoint;
+
+    [Header("Mobile Presentation")]
+    public Vector3 MobileModelLocalPosition = Vector3.zero;
+    public Vector3 MobileModelLocalEulerAngles =
+        new Vector3(0f,180f,0f);
+    [Min(0.01f)] public float MobileModelScale = 0.32f;
+    public Vector3 MobileScreenLocalPosition =
+        new Vector3(0f,0f,-0.045f);
+    public Vector3 MobileScreenLocalEulerAngles = Vector3.zero;
+    [Min(0.00001f)] public float MobileScreenScale = 0.0003f;
+    public Vector2 MobileScreenSize = new Vector2(520f,900f);
 
     [Header("Debug")]
     public bool ShowInteractionDebug;
@@ -55,6 +67,11 @@ public class PlayerInteractionController : MonoBehaviour
         {
             TheCamera =
                 GetComponentInChildren<Camera>();
+        }
+
+        if (MobileHoldPoint == null && TheCamera != null)
+        {
+            MobileHoldPoint = TheCamera.transform.Find("MobilePoint");
         }
 
         if (GetComponent<

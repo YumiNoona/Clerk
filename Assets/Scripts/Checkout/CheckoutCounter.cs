@@ -26,6 +26,13 @@ public sealed class CheckoutCounter :
     private List<Transform> queuePoints =
         new List<Transform>();
 
+    [Header("Clerk Interaction Zone")]
+    [SerializeField]
+    private Transform clerkStandingPoint;
+
+    [SerializeField,Min(0.5f)]
+    private float clerkInteractionRadius = 1.35f;
+
     [Header("Display")]
     [SerializeField]
     private TMP_Text statusText;
@@ -69,6 +76,25 @@ public sealed class CheckoutCounter :
             {
                 queuePoints.Add(points[i]);
             }
+        }
+    }
+
+    public void ConfigureClerkPoint(
+        Transform standingPoint,
+        float interactionRadius)
+    {
+        if (clerkStandingPoint != null &&
+            clerkStandingPoint != standingPoint)
+        {
+            Destroy(clerkStandingPoint.gameObject);
+        }
+
+        clerkStandingPoint = standingPoint;
+        clerkInteractionRadius = Mathf.Max(0.5f,interactionRadius);
+
+        if (clerkStandingPoint != null)
+        {
+            clerkStandingPoint.SetParent(transform,true);
         }
     }
 
@@ -298,6 +324,14 @@ public sealed class CheckoutCounter :
             return false;
         }
 
+        if (clerkStandingPoint != null &&
+            Vector3.Distance(
+                context.Player.transform.position,
+                clerkStandingPoint.position) > clerkInteractionRadius)
+        {
+            return false;
+        }
+
         if (context.Type ==
             InteractionType.Primary)
         {
@@ -418,6 +452,9 @@ public sealed class CheckoutCounter :
 
         fallbackQueueSpacing =
             Mathf.Max(0.25f,fallbackQueueSpacing);
+
+        clerkInteractionRadius =
+            Mathf.Max(0.5f,clerkInteractionRadius);
 
         EnsureId();
     }

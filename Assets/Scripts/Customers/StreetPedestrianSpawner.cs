@@ -12,6 +12,7 @@ public sealed class StreetPedestrianSpawner : MonoBehaviour
     private float spawnInterval = 0.35f;
 
     private CustomerDatabase database;
+    private int successfulSpawnCount;
     private readonly List<Vector3> track =
         new List<Vector3>();
 
@@ -42,6 +43,14 @@ public sealed class StreetPedestrianSpawner : MonoBehaviour
             SpawnPedestrian(i);
             yield return new WaitForSeconds(spawnInterval);
         }
+
+        if (successfulSpawnCount == 0 && pedestrianCount > 0)
+        {
+            Debug.LogWarning(
+                "No pedestrians could be placed on the configured track. " +
+                "Move the pedestrian spheres closer to the baked NavMesh.",
+                this);
+        }
     }
 
     private void SpawnPedestrian(int index)
@@ -62,15 +71,27 @@ public sealed class StreetPedestrianSpawner : MonoBehaviour
             return;
         }
 
-        int segment = index % (track.Count - 1);
-        Vector3 requested = Vector3.Lerp(
-            track[segment],
-            track[segment + 1],
-            Random.Range(0.1f,0.9f));
+        NavMeshHit hit = default;
+        bool foundPosition = false;
 
-        if (!TrySampleStreetPosition(
-                requested,
-                out NavMeshHit hit))
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            float progress = Mathf.Repeat(
+                (index + Random.Range(0.15f,0.85f) + attempt * 0.37f) /
+                Mathf.Max(1f,pedestrianCount),
+                1f);
+
+            Vector3 requested = EvaluateTrack(progress);
+
+            if (TrySampleStreetPosition(requested,out hit) &&
+                HasPedestrianSeparation(hit.position,1f))
+            {
+                foundPosition = true;
+                break;
+            }
+        }
+
+        if (!foundPosition)
         {
             return;
         }
@@ -88,6 +109,57 @@ public sealed class StreetPedestrianSpawner : MonoBehaviour
             pedestrian.GetComponent<StreetPedestrian>() ??
             pedestrian.AddComponent<StreetPedestrian>();
         walker.Configure(track,index % 2 == 0);
+        successfulSpawnCount++;
+    }
+
+    private Vector3 EvaluateTrack(float normalizedProgress)
+    {
+        float totalLength = 0f;
+
+        for (int i = 1; i < track.Count; i++)
+        {
+            totalLength += Vector3.Distance(track[i - 1],track[i]);
+        }
+
+        float targetDistance =
+            Mathf.Clamp01(normalizedProgress) * totalLength;
+
+        for (int i = 1; i < track.Count; i++)
+        {
+            float segmentLength =
+                Vector3.Distance(track[i - 1],track[i]);
+
+            if (targetDistance <= segmentLength)
+            {
+                return Vector3.Lerp(
+                    track[i - 1],
+                    track[i],
+                    segmentLength > 0.001f
+                        ? targetDistance / segmentLength
+                        : 0f);
+            }
+
+            targetDistance -= segmentLength;
+        }
+
+        return track[track.Count - 1];
+    }
+
+    private bool HasPedestrianSeparation(
+        Vector3 position,
+        float minimumDistance)
+    {
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform existing = transform.GetChild(i);
+
+            if (Vector3.Distance(existing.position,position) < minimumDistance)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private bool TrySampleStreetPosition(
@@ -97,7 +169,7 @@ public sealed class StreetPedestrianSpawner : MonoBehaviour
         if (!NavMesh.SamplePosition(
                 requested,
                 out hit,
-                1.25f,
+                4f,
                 NavMesh.AllAreas))
         {
             return false;
@@ -133,6 +205,6 @@ public sealed class StreetPedestrianSpawner : MonoBehaviour
                 Vector3.Distance(hit.position,closest));
         }
 
-        return closestDistance <= 0.9f;
+        return closestDistance <= 3.5f;
     }
 }

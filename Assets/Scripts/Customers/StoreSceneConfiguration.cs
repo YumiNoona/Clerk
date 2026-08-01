@@ -32,6 +32,8 @@ public sealed class StoreSceneConfiguration : MonoBehaviour
     [SerializeField,Min(0f)] private float entranceWaitMinimum = 0.5f;
     [SerializeField,Min(0f)] private float entranceWaitMaximum = 2f;
     [SerializeField] private CheckoutCounter checkout;
+    [SerializeField] private ScenePose checkoutClerkPoint;
+    [SerializeField,Min(0.5f)] private float checkoutClerkRadius = 1.35f;
     [SerializeField] private List<ScenePose> checkoutQueue =
         new List<ScenePose>();
     [SerializeField] private ScenePose exitPoint;
@@ -137,6 +139,11 @@ public sealed class StoreSceneConfiguration : MonoBehaviour
             }
 
             checkout.ConfigureQueuePoints(queue);
+            checkout.ConfigureClerkPoint(
+                CreateRuntimePoint(
+                    "Checkout Clerk Position",
+                    checkoutClerkPoint),
+                checkoutClerkRadius);
         }
 
         RebuildPedestrianWorldTrack();
@@ -194,6 +201,7 @@ public sealed class StoreSceneConfiguration : MonoBehaviour
     {
         entranceWaitMinimum = Mathf.Max(0f,entranceWaitMinimum);
         entranceWaitMaximum = Mathf.Max(entranceWaitMinimum,entranceWaitMaximum);
+        checkoutClerkRadius = Mathf.Max(0.5f,checkoutClerkRadius);
 
         for (int i = 0; i < customerSpawns.Count; i++)
         {

@@ -129,10 +129,17 @@ public sealed class CustomerSpawner : MonoBehaviour
                 products,
                 definition);
 
+        if (!TryResolveSpawnPosition(
+                spawnPoint,
+                out Vector3 spawnPosition))
+        {
+            return false;
+        }
+
         GameObject customerObject =
             Instantiate(
                 definition.CustomerPrefab,
-                spawnPoint.GetSpawnPosition(),
+                spawnPosition,
                 spawnPoint.GetSpawnRotation());
 
         NavMeshAgent agent =
@@ -177,6 +184,67 @@ public sealed class CustomerSpawner : MonoBehaviour
         }
 
         brain.BeginLifecycle();
+        return true;
+    }
+
+    private bool TryResolveSpawnPosition(
+        CustomerSpawnPoint spawnPoint,
+        out Vector3 position)
+    {
+        position = spawnPoint.Position;
+        float radius = Mathf.Max(
+            1.25f,
+            spawnPoint.RandomSpawnRadius);
+
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            Vector2 offset = attempt == 0
+                ? Vector2.zero
+                : Random.insideUnitCircle * radius;
+
+            Vector3 requested = spawnPoint.Position +
+                new Vector3(offset.x,0f,offset.y);
+
+            if (!NavMesh.SamplePosition(
+                    requested,
+                    out NavMeshHit hit,
+                    1.5f,
+                    NavMesh.AllAreas) ||
+                !HasCustomerSeparation(hit.position,1.1f))
+            {
+                continue;
+            }
+
+            position = hit.position;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasCustomerSeparation(
+        Vector3 position,
+        float minimumDistance)
+    {
+        if (GameBootstrap.Instance == null)
+        {
+            return true;
+        }
+
+        IReadOnlyList<CustomerContext> active =
+            GameBootstrap.Instance.Customers.Customers;
+
+        for (int i = 0; i < active.Count; i++)
+        {
+            if (active[i] != null &&
+                Vector3.Distance(
+                    active[i].transform.position,
+                    position) < minimumDistance)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

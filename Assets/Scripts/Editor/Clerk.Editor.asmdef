@@ -2,7 +2,11 @@
   "name": "Clerk.Editor",
   "rootNamespace": "",
   "references": [
-    "Clerk.Runtime"
+    "Clerk.Runtime",
+    "Unity.InputSystem",
+    "Unity.InputSystem.ForUI",
+    "Unity.TextMeshPro",
+    "UnityEngine.UI"
   ],
   "includePlatforms": [
     "Editor"

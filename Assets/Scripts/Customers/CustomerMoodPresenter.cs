@@ -55,10 +55,25 @@ public sealed class CustomerMoodPresenter : MonoBehaviour
 
         CreateIcon();
         RefreshMood(true);
+        iconRenderer.enabled =
+            ShouldShowMood(context.State);
     }
 
     private void Update()
     {
+        if (iconRenderer == null || context == null)
+        {
+            return;
+        }
+
+        bool shouldShow = ShouldShowMood(context.State);
+        iconRenderer.enabled = shouldShow;
+
+        if (!shouldShow)
+        {
+            return;
+        }
+
         RefreshMood(false);
     }
 
@@ -200,6 +215,21 @@ public sealed class CustomerMoodPresenter : MonoBehaviour
         }
 
         return CustomerMood.Furious;
+    }
+
+    private static bool ShouldShowMood(CustomerState state)
+    {
+        switch (state)
+        {
+            case CustomerState.Shopping:
+            case CustomerState.MovingToCheckout:
+            case CustomerState.WaitingInCheckoutQueue:
+            case CustomerState.CheckingOut:
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     private void OnDestroy()

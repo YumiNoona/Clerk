@@ -40,6 +40,9 @@ public sealed class CustomerContext : MonoBehaviour
     public bool IsInitialized { get; private set; }
     public CheckoutCounter AssignedCheckout { get; private set; }
     public bool CheckoutCompleted { get; private set; }
+    public float InitialPatience { get; private set; }
+
+    private float stateEnteredAt;
 
     public event Action<CustomerContext,CustomerState>
         StateChanged;
@@ -82,6 +85,7 @@ public sealed class CustomerContext : MonoBehaviour
 
         PatienceRemaining =
             definition.GetRandomPatience();
+        InitialPatience = PatienceRemaining;
 
         navigation.SetMovementSpeed(
             definition.GetRandomWalkSpeed());
@@ -129,6 +133,7 @@ public sealed class CustomerContext : MonoBehaviour
         }
 
         State = state;
+        stateEnteredAt = Time.time;
         StateChanged?.Invoke(this,State);
     }
 
@@ -215,6 +220,27 @@ public sealed class CustomerContext : MonoBehaviour
         {
             return;
         }
+
+        float checkoutDuration = State == CustomerState.CheckingOut
+            ? Mathf.Max(0f,Time.time - stateEnteredAt)
+            : 45f;
+
+        // A quick checkout repairs the customer's experience. Completing it
+        // in about 12 seconds restores enough patience to visibly improve an
+        // angry customer; slow service gives only a small recovery.
+        float speedScore = Mathf.InverseLerp(
+            45f,
+            8f,
+            checkoutDuration);
+
+        float restoredRatio = Mathf.Lerp(
+            0.05f,
+            0.42f,
+            speedScore);
+
+        PatienceRemaining = Mathf.Min(
+            InitialPatience,
+            PatienceRemaining + InitialPatience * restoredRatio);
 
         CheckoutCompleted = true;
         AssignedCheckout = null;
