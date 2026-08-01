@@ -199,12 +199,14 @@ public static class UIFactory
 
         ScrollRect scroll =
             root.gameObject.AddComponent<ScrollRect>();
+        root.GetComponent<Image>().raycastTarget = true;
 
         RectTransform viewport =
             Panel(root,"Viewport",Color.clear);
 
         viewport.gameObject.AddComponent<
             RectMask2D>();
+        viewport.GetComponent<Image>().raycastTarget = true;
 
         RectTransform content =
             Panel(viewport,"Content",Color.clear);
@@ -228,6 +230,31 @@ public static class UIFactory
         scroll.vertical = true;
         scroll.movementType =
             ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 42f;
+        scroll.inertia = true;
+        scroll.decelerationRate = 0.12f;
+
+        DesktopScrollRegion wheel =
+            viewport.gameObject.AddComponent<DesktopScrollRegion>();
+        wheel.ScrollRect = scroll;
+
+        RectTransform scrollbarRoot =
+            Panel(root,"Vertical Scrollbar",new Color32(31,41,55,220));
+        scrollbarRoot.anchorMin = new Vector2(0.988f,0.02f);
+        scrollbarRoot.anchorMax = new Vector2(0.998f,0.98f);
+        scrollbarRoot.offsetMin = scrollbarRoot.offsetMax = Vector2.zero;
+        Scrollbar scrollbar = scrollbarRoot.gameObject.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+        RectTransform handle = Panel(scrollbarRoot,"Handle",new Color32(96,165,250,255));
+        handle.anchorMin = Vector2.zero;
+        handle.anchorMax = Vector2.one;
+        handle.offsetMin = handle.offsetMax = Vector2.zero;
+        handle.GetComponent<Image>().raycastTarget = true;
+        scrollbar.handleRect = handle;
+        scrollbar.targetGraphic = handle.GetComponent<Image>();
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        scroll.verticalScrollbarSpacing = -8f;
 
         return content;
     }

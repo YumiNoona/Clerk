@@ -29,7 +29,7 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     [Header("Pause Menu")]
     public Button ResumeButton;
     public Button DesktopButton;
-    public Button PhoneButton;
+    [HideInInspector] public Button PhoneButton;
     public Button SaveButton;
     public Button LoadButton;
     public Button PauseQuitButton;
@@ -53,6 +53,7 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     public RectTransform[] ApplicationContents;
 
     [Header("Desktop Application Icons")]
+    [Min(32f)] public float ApplicationIconSize = 64f;
     public Sprite OverviewIcon;
     [FormerlySerializedAs("SupplyIcon")]
     public Sprite StoreIcon;
@@ -63,19 +64,35 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     public Sprite LinkedInIcon;
     public Sprite HistoryIcon;
     public Sprite SettingsIcon;
+    public Sprite LoginIcon;
+    public Sprite MailIcon;
+    public Sprite AppMarketIcon;
+    public Sprite MessagesIcon;
+    public Sprite SecurityIcon;
+    public Sprite TodoIcon;
+    public Sprite WeatherIcon;
+    public Sprite NotepadIcon;
+    public Sprite CalculatorIcon;
 
-    [Header("Mobile Device Layout")]
-    public RectTransform MobileLayout;
-    public RectTransform MobileFrame;
-    public RectTransform MobileNavigation;
-    public RectTransform MobileBody;
-    public RectTransform MobileContent;
-    public TextMeshProUGUI MobileClock;
-    public TextMeshProUGUI MobileTitle;
-    public Button MobileCloseButton;
-    public Button[] MobileApplicationButtons;
-    public RectTransform[] MobileApplicationPages;
-    public RectTransform[] MobileApplicationContents;
+    [Header("Desktop Taskbar")]
+    public Button TaskbarStartButton;
+    public TextMeshProUGUI TaskbarClockText;
+
+    [Header("Career")]
+    [Min(0f)] public float PlayerDailyWage = 80f;
+
+    // Legacy mobile references are hidden while old save scenes migrate to desktop-only UI.
+    [HideInInspector] public RectTransform MobileLayout;
+    [HideInInspector] public RectTransform MobileFrame;
+    [HideInInspector] public RectTransform MobileNavigation;
+    [HideInInspector] public RectTransform MobileBody;
+    [HideInInspector] public RectTransform MobileContent;
+    [HideInInspector] public TextMeshProUGUI MobileClock;
+    [HideInInspector] public TextMeshProUGUI MobileTitle;
+    [HideInInspector] public Button MobileCloseButton;
+    [HideInInspector] public Button[] MobileApplicationButtons;
+    [HideInInspector] public RectTransform[] MobileApplicationPages;
+    [HideInInspector] public RectTransform[] MobileApplicationContents;
 
     public bool IsComplete =>
         Canvas != null && HudRoot != null && PauseRoot != null &&
@@ -84,7 +101,7 @@ public sealed class StoreUIAuthoring : MonoBehaviour
         MoneyText != null && ClockText != null && StatusText != null &&
         StartButton != null && PriceInput != null &&
         DeviceContent != null && ApplicationPages != null &&
-        ApplicationPages.Length == 8 && ApplicationContents != null &&
-        ApplicationContents.Length == 8;
+        ApplicationPages.Length == 17 && ApplicationContents != null &&
+        ApplicationContents.Length == 17;
 
 }

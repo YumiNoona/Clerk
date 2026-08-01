@@ -107,7 +107,7 @@ public static class StoreUIHierarchyBuilder
     public static void RefreshDesktopIcons(StoreUIAuthoring ui)
     {
         if (ui == null || EditorApplication.isPlayingOrWillChangePlaymode ||
-            ui.ApplicationButtons == null || ui.ApplicationButtons.Length != 8)
+            ui.ApplicationButtons == null || ui.ApplicationButtons.Length != 17)
         {
             return;
         }
@@ -115,7 +115,10 @@ public static class StoreUIHierarchyBuilder
         Sprite[] icons =
         {
             ui.OverviewIcon, ui.StoreIcon, ui.RegisterIcon, ui.BankIcon,
-            ui.HiringIcon, ui.LinkedInIcon, ui.HistoryIcon, ui.SettingsIcon
+            ui.HiringIcon, ui.LinkedInIcon, ui.HistoryIcon, ui.SettingsIcon,
+            ui.LoginIcon, ui.MailIcon, ui.AppMarketIcon, ui.MessagesIcon,
+            ui.SecurityIcon, ui.TodoIcon, ui.WeatherIcon, ui.NotepadIcon,
+            ui.CalculatorIcon
         };
 
         Undo.RegisterFullObjectHierarchyUndo(ui.gameObject,"Update Desktop Icons");
@@ -149,9 +152,9 @@ public static class StoreUIHierarchyBuilder
             {
                 RectTransform iconRect = UIFactory.Panel(
                     button.transform,"Icon Image",Color.white);
-                iconRect.anchorMin = new Vector2(0.02f,0.02f);
-                iconRect.anchorMax = new Vector2(0.98f,0.98f);
-                iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
+                iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f,0.5f);
+                iconRect.sizeDelta = Vector2.one * ui.ApplicationIconSize;
+                iconRect.anchoredPosition = Vector2.zero;
                 image = iconRect.GetComponent<Image>();
                 image.preserveAspect = true;
                 image.raycastTarget = false;
@@ -162,9 +165,9 @@ public static class StoreUIHierarchyBuilder
             }
 
             RectTransform imageRect = image.rectTransform;
-            imageRect.anchorMin = new Vector2(0.02f,0.02f);
-            imageRect.anchorMax = new Vector2(0.98f,0.98f);
-            imageRect.offsetMin = imageRect.offsetMax = Vector2.zero;
+            imageRect.anchorMin = imageRect.anchorMax = new Vector2(0.5f,0.5f);
+            imageRect.sizeDelta = Vector2.one * ui.ApplicationIconSize;
+            imageRect.anchoredPosition = Vector2.zero;
 
             image.sprite = icon;
             image.color = Color.white;
@@ -389,20 +392,19 @@ public static class StoreUIHierarchyBuilder
         taskbar.anchorMin = Vector2.zero;
         taskbar.anchorMax = new Vector2(1f,0.075f);
         taskbar.offsetMin = taskbar.offsetMax = Vector2.zero;
-        TextMeshProUGUI startLabel = UIFactory.Text(
-            taskbar,"Start Label","CLERK  |  STORE MANAGEMENT",17f,
-            TextAlignmentOptions.Left);
-        startLabel.rectTransform.anchorMin = new Vector2(0.015f,0f);
-        startLabel.rectTransform.anchorMax = new Vector2(0.42f,1f);
-        startLabel.rectTransform.offsetMin = startLabel.rectTransform.offsetMax = Vector2.zero;
-        startLabel.color = UIFactory.Accent;
-        TextMeshProUGUI taskbarStatus = UIFactory.Text(
-            taskbar,"System Status","ONLINE   •   DESKTOP",15f,
+        ui.TaskbarStartButton = UIFactory.Button(
+            taskbar,"Start","START",null,new Color32(34,126,210,255));
+        RectTransform startRect = ui.TaskbarStartButton.GetComponent<RectTransform>();
+        startRect.anchorMin = new Vector2(0.01f,0.12f);
+        startRect.anchorMax = new Vector2(0.13f,0.88f);
+        startRect.offsetMin = startRect.offsetMax = Vector2.zero;
+        ui.TaskbarClockText = UIFactory.Text(
+            taskbar,"Clock And Calendar","08:00\nDAY 1",15f,
             TextAlignmentOptions.Right);
-        taskbarStatus.rectTransform.anchorMin = new Vector2(0.65f,0f);
-        taskbarStatus.rectTransform.anchorMax = new Vector2(0.985f,1f);
-        taskbarStatus.rectTransform.offsetMin = taskbarStatus.rectTransform.offsetMax = Vector2.zero;
-        taskbarStatus.color = UIFactory.Muted;
+        ui.TaskbarClockText.rectTransform.anchorMin = new Vector2(0.76f,0f);
+        ui.TaskbarClockText.rectTransform.anchorMax = new Vector2(0.985f,1f);
+        ui.TaskbarClockText.rectTransform.offsetMin = ui.TaskbarClockText.rectTransform.offsetMax = Vector2.zero;
+        ui.TaskbarClockText.color = new Color32(225,230,240,255);
 
         ui.DeviceNavigation = UIFactory.Panel(
             ui.DeviceFrame,"Desktop App Launcher",new Color32(16,25,42,255));
@@ -414,33 +416,43 @@ public static class StoreUIHierarchyBuilder
         launcher.padding = new RectOffset(20,20,24,18);
         launcher.spacing = new Vector2(14f,18f);
         launcher.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        launcher.constraintCount = 2;
-        launcher.cellSize = new Vector2(125f,100f);
+        launcher.constraintCount = 3;
+        launcher.cellSize = new Vector2(82f,82f);
         launcher.childAlignment = TextAnchor.UpperCenter;
 
         string[] apps =
         {
             "OVERVIEW", "STORE", "REGISTER", "BANK",
-            "HIRING", "LINKEDIN", "HISTORY", "SETTINGS"
+            "HIRING", "LINKEDIN", "HISTORY", "SETTINGS", "LOGIN", "MAIL",
+            "APP MARKET", "MESSAGES", "SECURITY", "TODO", "WEATHER", "NOTEPAD", "CALCULATOR"
         };
-        string[] glyphs = { "HQ", "SHOP", "POS", "$", "HR", "IN", "LOG", "SET" };
+        string[] glyphs = { "HQ", "SHOP", "POS", "$", "HR", "IN", "LOG", "SET", "ID", "MAIL", "GET", "MSG", "CAM", "DO", "SUN", "TXT", "123" };
         Color[] colors =
         {
             new Color32(76,201,240,255), new Color32(255,159,67,255),
             new Color32(167,126,245,255), new Color32(190,242,58,255),
             new Color32(255,103,132,255), new Color32(69,180,230,255),
-            new Color32(137,145,168,255), new Color32(92,99,120,255)
+            new Color32(137,145,168,255), new Color32(92,99,120,255),
+            new Color32(53,199,140,255), new Color32(73,136,230,255),
+            new Color32(80,215,180,255), new Color32(255,91,120,255),
+            new Color32(82,88,107,255), new Color32(166,239,46,255),
+            new Color32(69,180,230,255), new Color32(137,145,168,255),
+            new Color32(255,159,67,255)
         };
         Sprite[] icons =
         {
             ui.OverviewIcon, ui.StoreIcon, ui.RegisterIcon, ui.BankIcon,
-            ui.HiringIcon, ui.LinkedInIcon, ui.HistoryIcon, ui.SettingsIcon
+            ui.HiringIcon, ui.LinkedInIcon, ui.HistoryIcon, ui.SettingsIcon,
+            ui.LoginIcon, ui.MailIcon, ui.AppMarketIcon, ui.MessagesIcon,
+            ui.SecurityIcon, ui.TodoIcon, ui.WeatherIcon, ui.NotepadIcon,
+            ui.CalculatorIcon
         };
         List<Button> buttons = new List<Button>();
         for (int i = 0; i < apps.Length; i++)
         {
             Button button = BuildDesktopAppShortcut(
-                ui.DeviceNavigation,apps[i],glyphs[i],colors[i],icons[i]);
+                ui.DeviceNavigation,apps[i],glyphs[i],colors[i],icons[i],
+                ui.ApplicationIconSize);
             buttons.Add(button);
         }
         ui.ApplicationButtons = buttons.ToArray();
@@ -473,6 +485,9 @@ public static class StoreUIHierarchyBuilder
             pageHeader.anchorMax = Vector2.one;
             pageHeader.offsetMin = new Vector2(14f,6f);
             pageHeader.offsetMax = new Vector2(-14f,-8f);
+            DesktopWindowDragHandle drag =
+                pageHeader.gameObject.AddComponent<DesktopWindowDragHandle>();
+            drag.Window = page;
             TextMeshProUGUI pageTitle = UIFactory.Text(
                 pageHeader,"Title",apps[i],25f,
                 TextAlignmentOptions.Left);
@@ -494,14 +509,15 @@ public static class StoreUIHierarchyBuilder
 
             ui.ApplicationPages[i] = page;
             ui.ApplicationContents[i] = content;
-            page.gameObject.SetActive(i == 0);
+            page.gameObject.SetActive(false);
         }
 
         ui.DeviceContent = ui.ApplicationContents[0];
     }
 
     private static Button BuildDesktopAppShortcut(
-        Transform parent,string appName,string glyph,Color tileColor,Sprite icon)
+        Transform parent,string appName,string glyph,Color tileColor,Sprite icon,
+        float iconSize)
     {
         RectTransform shortcut = UIFactory.Panel(
             parent,appName + " Shortcut",Color.clear);
@@ -521,9 +537,9 @@ public static class StoreUIHierarchyBuilder
             glyphText.gameObject.SetActive(false);
             RectTransform iconRect = UIFactory.Panel(
                 button.transform,"Icon Image",Color.white);
-            iconRect.anchorMin = new Vector2(0.02f,0.02f);
-            iconRect.anchorMax = new Vector2(0.98f,0.98f);
-            iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
+            iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f,0.5f);
+            iconRect.sizeDelta = Vector2.one * iconSize;
+            iconRect.anchoredPosition = Vector2.zero;
             Image image = iconRect.GetComponent<Image>();
             image.sprite = icon;
             image.preserveAspect = true;

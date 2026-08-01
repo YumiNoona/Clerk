@@ -27,6 +27,13 @@ public enum StoreApplication
     Messages,
     Tasks,
     Settings,
+    Login,
+    Mail,
+    AppMarket,
+    Todo,
+    Weather,
+    Notepad,
+    Calculator,
     SaveLoad
 }
 
@@ -48,6 +55,10 @@ public sealed class StoreUIService : MonoBehaviour
     private StoreDeviceKind activeDevice;
     private StoreApplication activeApplication;
     private int marketplaceTab;
+    private int selectedMailIndex = -1;
+    private int selectedConversationIndex = -1;
+    private Camera selectedSecurityCamera;
+    private RenderTexture securityPreviewTexture;
     private bool isRebinding;
     private bool showingMainMenu;
     private Button mainMenuStartButton;
@@ -235,9 +246,18 @@ public sealed class StoreUIService : MonoBehaviour
             AttachDeviceToMobileScreen();
         }
 
-        ShowApplication(StoreApplication.Overview);
         deviceRoot.gameObject.SetActive(
             kind == StoreDeviceKind.Desktop);
+
+        if (kind == StoreDeviceKind.Desktop && authoredApplicationPages != null)
+        {
+            for (int i = 0; i < authoredApplicationPages.Length; i++)
+            {
+                authoredApplicationPages[i].gameObject.SetActive(false);
+            }
+            deviceTitle.text = "DESKTOP";
+            deviceContent = null;
+        }
 
         GameBootstrap.Instance.GameplayModes
             .TrySetMode(GameplayMode.DeviceUI);
@@ -245,6 +265,7 @@ public sealed class StoreUIService : MonoBehaviour
 
     public void CloseDevice()
     {
+        ReleaseSecurityPreview();
         if (deviceRoot != null)
         {
             deviceRoot.gameObject.SetActive(false);
@@ -481,6 +502,12 @@ public sealed class StoreUIService : MonoBehaviour
     public void ShowApplication(
         StoreApplication application)
     {
+        if (activeApplication == StoreApplication.Security &&
+            application != StoreApplication.Security)
+        {
+            ReleaseSecurityPreview();
+        }
+
         if (authoredUI != null)
         {
             int pageIndex = GetNavigationApplicationIndex(application);
@@ -543,6 +570,27 @@ public sealed class StoreUIService : MonoBehaviour
                 break;
             case StoreApplication.Settings:
                 BuildSettings(deviceContent);
+                break;
+            case StoreApplication.Login:
+                BuildLogin(deviceContent);
+                break;
+            case StoreApplication.Mail:
+                BuildMail(deviceContent);
+                break;
+            case StoreApplication.AppMarket:
+                BuildAppMarket(deviceContent);
+                break;
+            case StoreApplication.Todo:
+                BuildTodo(deviceContent);
+                break;
+            case StoreApplication.Weather:
+                BuildWeather(deviceContent);
+                break;
+            case StoreApplication.Notepad:
+                BuildNotepad(deviceContent);
+                break;
+            case StoreApplication.Calculator:
+                BuildCalculator(deviceContent);
                 break;
             case StoreApplication.SaveLoad:
                 BuildSaveLoad(deviceContent);
@@ -955,6 +1003,18 @@ public sealed class StoreUIService : MonoBehaviour
         BindButton(authoredUI.ApplyPriceButton,ApplyPriceEditor);
         BindButton(authoredUI.CancelPriceButton,ClosePriceEditor);
         BindButton(authoredUI.DeviceCloseButton,CloseDevice);
+        BindButton(authoredUI.TaskbarStartButton,() =>
+        {
+            if (GameBootstrap.Instance.Days.IsDayRunning)
+            {
+                GameBootstrap.Instance.Days.EndDay();
+            }
+            else
+            {
+                GameBootstrap.Instance.Days.StartDay();
+            }
+            UpdateHud();
+        });
 
         StoreApplication[] applications = GetNavigationApplications();
         int count = Mathf.Min(
@@ -964,6 +1024,8 @@ public sealed class StoreUIService : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             StoreApplication application = applications[i];
+            authoredUI.ApplicationButtons[i].transform.parent.gameObject.SetActive(
+                IsCoreApplication(application) || IsApplicationInstalled(application));
             BindButton(
                 authoredUI.ApplicationButtons[i],
                 () => ShowApplication(application));
@@ -1003,7 +1065,16 @@ public sealed class StoreUIService : MonoBehaviour
             StoreApplication.Staff,
             StoreApplication.Tasks,
             StoreApplication.History,
-            StoreApplication.Settings
+            StoreApplication.Settings,
+            StoreApplication.Login,
+            StoreApplication.Mail,
+            StoreApplication.AppMarket,
+            StoreApplication.Messages,
+            StoreApplication.Security,
+            StoreApplication.Todo,
+            StoreApplication.Weather,
+            StoreApplication.Notepad,
+            StoreApplication.Calculator
         };
     }
 
@@ -1022,6 +1093,41 @@ public sealed class StoreUIService : MonoBehaviour
         }
 
         return -1;
+    }
+
+    private static bool IsCoreApplication(StoreApplication application)
+    {
+        return application == StoreApplication.Overview ||
+            application == StoreApplication.Supply ||
+            application == StoreApplication.Register ||
+            application == StoreApplication.Bank ||
+            application == StoreApplication.Staff ||
+            application == StoreApplication.Tasks ||
+            application == StoreApplication.History ||
+            application == StoreApplication.Settings ||
+            application == StoreApplication.Login ||
+            application == StoreApplication.Mail ||
+            application == StoreApplication.AppMarket;
+    }
+
+    private static string GetInstallKey(StoreApplication application) =>
+        "Clerk.DesktopApp." + application;
+
+    private static bool IsApplicationInstalled(StoreApplication application) =>
+        IsCoreApplication(application) || PlayerPrefs.GetInt(GetInstallKey(application),0) == 1;
+
+    private void InstallApplication(StoreApplication application)
+    {
+        PlayerPrefs.SetInt(GetInstallKey(application),1);
+        PlayerPrefs.Save();
+        int index = GetNavigationApplicationIndex(application);
+        if (authoredUI != null && index >= 0 && index < authoredUI.ApplicationButtons.Length)
+        {
+            authoredUI.ApplicationButtons[index].transform.parent.gameObject.SetActive(true);
+        }
+        GameBootstrap.Instance.Notifications.Show(
+            GetApplicationTitle(application) + " installed.",NotificationKind.Success);
+        ShowApplication(StoreApplication.AppMarket);
     }
 
     private void BuildPriceEditor()
@@ -1818,36 +1924,118 @@ public sealed class StoreUIService : MonoBehaviour
         Camera[] cameras =
             FindObjectsByType<Camera>(
                 FindObjectsInactive.Exclude);
-
-        AddMetric(
-            parent,
-            "CAMERAS ONLINE",
-            cameras.Length.ToString());
-
+        List<Camera> feeds = new List<Camera>();
         for (int i = 0; i < cameras.Length; i++)
         {
-            AddMetric(
-                parent,
-                "CAM " + (i + 1),
-                cameras[i].name);
+            if (cameras[i] != Camera.main)
+            {
+                feeds.Add(cameras[i]);
+            }
+        }
+        AddMetric(parent,"CAMERAS ONLINE",feeds.Count.ToString());
+        if (feeds.Count == 0)
+        {
+            AddEmptyState(parent,
+                "No security cameras are installed. Add a Camera to the scene; the player Main Camera is excluded.");
+            return;
+        }
+        for (int i = 0; i < feeds.Count; i++)
+        {
+            Camera feed = feeds[i];
+            AddActionButton(parent,"VIEW · " + feed.name,() =>
+            {
+                OpenSecurityPreview(feed);
+                ShowApplication(StoreApplication.Security);
+            });
+        }
+        if (selectedSecurityCamera != null && securityPreviewTexture != null)
+        {
+            AddSectionTitle(parent,"LIVE · " + selectedSecurityCamera.name);
+            RectTransform preview = UIFactory.Panel(parent,"Live Camera Feed",Color.black);
+            UIFactory.Size(preview,0f,360f);
+            UnityEngine.Object.Destroy(preview.GetComponent<Image>());
+            RawImage image = preview.gameObject.AddComponent<RawImage>();
+            image.texture = securityPreviewTexture;
+            image.raycastTarget = false;
+            AddActionButton(parent,"CLOSE CAMERA FEED",() =>
+            {
+                ReleaseSecurityPreview();
+                ShowApplication(StoreApplication.Security);
+            });
+        }
+    }
+
+    private void OpenSecurityPreview(Camera camera)
+    {
+        ReleaseSecurityPreview();
+        selectedSecurityCamera = camera;
+        securityPreviewTexture = new RenderTexture(640,360,16,RenderTextureFormat.ARGB32);
+        securityPreviewTexture.name = "Clerk Security Preview";
+        selectedSecurityCamera.targetTexture = securityPreviewTexture;
+    }
+
+    private void ReleaseSecurityPreview()
+    {
+        if (selectedSecurityCamera != null &&
+            selectedSecurityCamera.targetTexture == securityPreviewTexture)
+        {
+            selectedSecurityCamera.targetTexture = null;
+        }
+        selectedSecurityCamera = null;
+        if (securityPreviewTexture != null)
+        {
+            securityPreviewTexture.Release();
+            Destroy(securityPreviewTexture);
+            securityPreviewTexture = null;
         }
     }
 
     private void BuildMessages(Transform parent)
     {
+        string[] contacts = { "District Manager", "SupplyCo Bot", "Staff Group", "Landlord" };
+        string[] previews =
+        {
+            "Remember to review today's assignments.",
+            "Deliveries are routed to your loading point.",
+            "Keep checkout queues moving during busy periods.",
+            "Store facilities report: no action required."
+        };
         AddSectionTitle(parent,"MESSAGES");
-        AddMessage(
-            parent,
-            "Supply Co.",
-            "Deliveries are placed at your loading point.");
-        AddMessage(
-            parent,
-            "Town Commerce",
-            "Raise reputation by keeping products available and prices fair.");
-        AddMessage(
-            parent,
-            "Clerk Tips",
-            "Customers abandon queues when their patience runs out.");
+        for (int i = 0; i < contacts.Length; i++)
+        {
+            int captured = i;
+            AddActionButton(parent,contacts[i] + " - " + previews[i],() =>
+            {
+                selectedConversationIndex = captured;
+                ShowApplication(StoreApplication.Messages);
+            });
+        }
+
+        if (selectedConversationIndex >= 0 && selectedConversationIndex < contacts.Length)
+        {
+            int selected = selectedConversationIndex;
+            AddSectionTitle(parent,contacts[selected]);
+            AddMessage(parent,contacts[selected],previews[selected]);
+            string replyKey = "Clerk.Messages.Replied." + selected;
+            if (PlayerPrefs.GetInt(replyKey,0) == 0)
+            {
+                AddActionButton(parent,"REPLY: GOT IT",() =>
+                {
+                    PlayerPrefs.SetInt(replyKey,1);
+                    PlayerPrefs.Save();
+                    ShowApplication(StoreApplication.Messages);
+                });
+            }
+            else
+            {
+                AddMessage(parent,"YOU","Got it. I'll take care of it.");
+            }
+            AddActionButton(parent,"BACK TO CONVERSATIONS",() =>
+            {
+                selectedConversationIndex = -1;
+                ShowApplication(StoreApplication.Messages);
+            });
+        }
     }
 
     private void BuildCareerBoard(Transform parent)
@@ -1902,6 +2090,262 @@ public sealed class StoreUIService : MonoBehaviour
                     });
             }
         }
+    }
+
+    private void BuildLogin(Transform parent)
+    {
+        int day = GameBootstrap.Instance.Days.CurrentDay;
+        bool paid = HasReceivedShiftPay(day);
+        AddSectionTitle(parent,"EMPLOYEE LOGIN");
+        AddMetric(parent,"EMPLOYEE","STORE CLERK");
+        AddMetric(parent,"TODAY","DAY " + day);
+        AddMetric(parent,"ATTENDANCE",paid ? "CLOCKED IN · PAID" : "NOT CLOCKED IN");
+        AddMetric(parent,"DAILY WAGE",FormatMoney(
+            Money.FromFloat(authoredUI != null ? authoredUI.PlayerDailyWage : 80f)));
+
+        if (!paid)
+        {
+            AddActionButton(parent,"CLOCK IN FOR TODAY",() =>
+            {
+                Money wage = Money.FromFloat(
+                    authoredUI != null ? authoredUI.PlayerDailyWage : 80f);
+                GameBootstrap.Instance.Economy.GrantFunds(
+                    wage,LedgerEntryType.Adjustment,"Clerk daily wage","player-shift-pay");
+                GameBootstrap.Instance.Notifications.Show(
+                    "Attendance recorded. Today's wage was paid.",NotificationKind.Success);
+                ShowApplication(StoreApplication.Login);
+            });
+        }
+        else
+        {
+            AddEmptyState(parent,"Your manager has received today's attendance record.");
+        }
+    }
+
+    private bool HasReceivedShiftPay(int day)
+    {
+        IReadOnlyList<LedgerEntry> entries = GameBootstrap.Instance.Economy.Entries;
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i].Day == day && entries[i].RelatedId == "player-shift-pay")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void BuildMail(Transform parent)
+    {
+        int day = GameBootstrap.Instance.Days.CurrentDay;
+        int level = GameBootstrap.Instance.Progression.StoreLevel;
+        List<string> senders = new List<string>
+        {
+            "STORE MANAGER",
+            "HUMAN RESOURCES"
+        };
+        List<string> subjects = new List<string>
+        {
+            "Attendance · Day " + day,
+            "Your current performance review"
+        };
+        List<string> bodies = new List<string>
+        {
+            HasReceivedShiftPay(day)
+                ? "Attendance confirmed. Your wage has been processed and recorded in History."
+                : "You have not clocked in today. Open the Login app before beginning your shift.",
+            "Current rank: Store Clerk · Performance level " + level +
+            ". Keep shelves stocked, serve customers quickly, and maintain fair prices to earn promotion opportunities."
+        };
+        var objectives = GameBootstrap.Instance.Objectives.Active;
+        for (int i = 0; i < objectives.Count; i++)
+        {
+            ObjectiveProgress objective = objectives[i];
+            senders.Add("DISTRICT MANAGER");
+            subjects.Add("Assignment: " + objective.Definition.Title);
+            bodies.Add("Progress: " + objective.Progress + "/" +
+                objective.Definition.TargetAmount +
+                (objective.Completed
+                    ? ". Assignment complete—open LinkedIn Jobs to claim its reward."
+                    : ". Complete this during your shift and report back."));
+        }
+        if (level > 1)
+        {
+            senders.Add("MANAGEMENT");
+            subjects.Add("Congratulations on your promotion");
+            bodies.Add("You reached store level " + level +
+                ". New responsibilities and career opportunities may now be available.");
+        }
+
+        AddSectionTitle(parent,"MAIL · INBOX");
+        for (int i = 0; i < subjects.Count; i++)
+        {
+            int captured = i;
+            bool read = PlayerPrefs.GetInt("Clerk.Mail.Read." + day + "." + i,0) == 1;
+            AddActionButton(parent,(read ? "" : "NEW · ") + senders[i] + " — " + subjects[i],() =>
+            {
+                selectedMailIndex = captured;
+                PlayerPrefs.SetInt("Clerk.Mail.Read." + day + "." + captured,1);
+                PlayerPrefs.Save();
+                ShowApplication(StoreApplication.Mail);
+            });
+        }
+
+        if (selectedMailIndex >= 0 && selectedMailIndex < bodies.Count)
+        {
+            AddSectionTitle(parent,subjects[selectedMailIndex]);
+            AddMessage(parent,"FROM · " + senders[selectedMailIndex],bodies[selectedMailIndex]);
+            AddActionButton(parent,"CLOSE MESSAGE",() =>
+            {
+                selectedMailIndex = -1;
+                ShowApplication(StoreApplication.Mail);
+            });
+        }
+    }
+
+    private void BuildAppMarket(Transform parent)
+    {
+        AddSectionTitle(parent,"CLERK APP MARKET");
+        AddMessage(parent,"EDITOR'S PICK",
+            "Install useful software for your store desktop. Installed apps appear as shortcuts immediately.");
+        AddMarketApp(parent,StoreApplication.Messages,"Staff Chat","Business","14 MB","4.2");
+        AddMarketApp(parent,StoreApplication.Security,"SecuCam","Business","18 MB","4.6");
+        AddMarketApp(parent,StoreApplication.Todo,"Shift Buddy","Business","8 MB","4.6");
+        AddMarketApp(parent,StoreApplication.Weather,"Store Weather","Tools","6 MB","4.5");
+        AddMarketApp(parent,StoreApplication.Notepad,"Clerk Notes","Tools","2 MB","4.1");
+        AddMarketApp(parent,StoreApplication.Calculator,"Cash Counter+","Tools","5 MB","4.4");
+    }
+
+    private void AddMarketApp(Transform parent,StoreApplication application,
+        string productName,string category,string size,string rating)
+    {
+        bool installed = IsApplicationInstalled(application);
+        AddMetric(parent,productName,
+            "RATING " + rating + " | " + size + " | " + category +
+            (installed ? " | INSTALLED" : string.Empty));
+        AddActionButton(parent,installed ? "OPEN " + productName.ToUpperInvariant()
+            : "INSTALL " + productName.ToUpperInvariant(),() =>
+        {
+            if (installed)
+            {
+                ShowApplication(application);
+            }
+            else
+            {
+                InstallApplication(application);
+            }
+        });
+    }
+
+    private void BuildTodo(Transform parent)
+    {
+        AddSectionTitle(parent,"SHIFT BUDDY · TO DO");
+        var objectives = GameBootstrap.Instance.Objectives.Active;
+        if (objectives.Count == 0)
+        {
+            AddEmptyState(parent,"Your shift list is clear.");
+            return;
+        }
+        for (int i = 0; i < objectives.Count; i++)
+        {
+            ObjectiveProgress item = objectives[i];
+            AddMetric(parent,(item.Completed ? "✓ " : "□ ") + item.Definition.Title,
+                item.Progress + " / " + item.Definition.TargetAmount);
+            if (item.Completed && !item.RewardClaimed)
+            {
+                string objectiveId = item.Definition.ObjectiveId;
+                AddActionButton(parent,"CLAIM REWARD · " + item.Definition.Title,() =>
+                {
+                    GameBootstrap.Instance.Objectives.ClaimReward(objectiveId);
+                    ShowApplication(StoreApplication.Todo);
+                });
+            }
+        }
+    }
+
+    private void BuildWeather(Transform parent)
+    {
+        int day = GameBootstrap.Instance.Days.CurrentDay;
+        string[] conditions = { "Clear", "Light rain", "Cloudy", "Warm and sunny", "Windy" };
+        int[] temperatures = { 72, 66, 69, 77, 64 };
+        int index = Mathf.Abs(day - 1) % conditions.Length;
+        AddSectionTitle(parent,"WEATHER");
+        AddMetric(parent,temperatures[index] + "°F",conditions[index] + " · Quick Stop district");
+        AddMessage(parent,"SHIFT ADVISORY",index == 1
+            ? "Expect wet foot traffic. Deliveries may arrive slightly later than usual."
+            : index == 4
+                ? "Secure outdoor deliveries and expect cooler evening traffic."
+                : "Conditions are favorable for normal deliveries and customer traffic.");
+        AddMessage(parent,"FORECAST","Tomorrow · " +
+            conditions[(index + 1) % conditions.Length] + " · " +
+            temperatures[(index + 1) % temperatures.Length] + "°F");
+    }
+
+    private void BuildNotepad(Transform parent)
+    {
+        AddSectionTitle(parent,"CLERK NOTES");
+        TMP_InputField notes = AddDesktopInput(parent,"Notes",true);
+        notes.text = PlayerPrefs.GetString("Clerk.Desktop.Notepad",string.Empty);
+        AddActionButton(parent,"SAVE NOTE",() =>
+        {
+            PlayerPrefs.SetString("Clerk.Desktop.Notepad",notes.text);
+            PlayerPrefs.Save();
+            GameBootstrap.Instance.Notifications.Show("Note saved.",NotificationKind.Success);
+        });
+    }
+
+    private void BuildCalculator(Transform parent)
+    {
+        AddSectionTitle(parent,"CASH COUNTER+");
+        TMP_InputField first = AddDesktopInput(parent,"First number",false);
+        TMP_InputField second = AddDesktopInput(parent,"Second number",false);
+        TextMeshProUGUI result = UIFactory.Text(parent,"Result","RESULT: 0",24f,
+            TextAlignmentOptions.Left);
+        UIFactory.Size(result,0f,55f);
+        void Calculate(char operation)
+        {
+            double.TryParse(first.text,NumberStyles.Float,CultureInfo.InvariantCulture,out double a);
+            double.TryParse(second.text,NumberStyles.Float,CultureInfo.InvariantCulture,out double b);
+            double value = operation switch
+            {
+                '+' => a + b,
+                '-' => a - b,
+                '*' => a * b,
+                '/' => Math.Abs(b) < 0.000001d ? double.NaN : a / b,
+                _ => 0d
+            };
+            result.text = "RESULT: " + (double.IsNaN(value) ? "CANNOT DIVIDE BY ZERO" : value.ToString("0.##"));
+        }
+        AddActionButton(parent,"ADD",() => Calculate('+'));
+        AddActionButton(parent,"SUBTRACT",() => Calculate('-'));
+        AddActionButton(parent,"MULTIPLY",() => Calculate('*'));
+        AddActionButton(parent,"DIVIDE",() => Calculate('/'));
+    }
+
+    private static TMP_InputField AddDesktopInput(Transform parent,string placeholder,bool multiline)
+    {
+        RectTransform root = UIFactory.Panel(parent,placeholder,UIFactory.SurfaceRaised);
+        UIFactory.Size(root,0f,multiline ? 260f : 58f);
+        root.GetComponent<Image>().raycastTarget = true;
+        TMP_InputField input = root.gameObject.AddComponent<TMP_InputField>();
+        TextMeshProUGUI text = UIFactory.Text(root,"Text",string.Empty,19f,
+            TextAlignmentOptions.TopLeft);
+        text.rectTransform.offsetMin = new Vector2(14f,10f);
+        text.rectTransform.offsetMax = new Vector2(-14f,-10f);
+        input.textComponent = text;
+        input.textViewport = root;
+        TextMeshProUGUI hint = UIFactory.Text(root,"Placeholder",placeholder,19f,
+            TextAlignmentOptions.TopLeft);
+        hint.color = UIFactory.Muted;
+        hint.fontStyle = FontStyles.Italic;
+        hint.rectTransform.offsetMin = new Vector2(14f,10f);
+        hint.rectTransform.offsetMax = new Vector2(-14f,-10f);
+        input.placeholder = hint;
+        input.contentType = multiline ? TMP_InputField.ContentType.Standard
+            : TMP_InputField.ContentType.DecimalNumber;
+        input.lineType = multiline ? TMP_InputField.LineType.MultiLineNewline
+            : TMP_InputField.LineType.SingleLine;
+        return input;
     }
 
     private void BuildSettings(Transform parent)
@@ -2284,9 +2728,10 @@ public sealed class StoreUIService : MonoBehaviour
             "DAY " + day.CurrentDay +
             "  " + day.FormattedTime;
 
-        if (authoredUI != null && authoredUI.MobileClock != null)
+        if (authoredUI != null && authoredUI.TaskbarClockText != null)
         {
-            authoredUI.MobileClock.text = day.FormattedTime;
+            authoredUI.TaskbarClockText.text =
+                day.FormattedTime + "\nDAY " + day.CurrentDay;
         }
 
         statusText.text =
@@ -2419,6 +2864,13 @@ public sealed class StoreUIService : MonoBehaviour
             StoreApplication.Messages => "MESSAGES",
             StoreApplication.Tasks => "LINKEDIN JOBS",
             StoreApplication.Settings => "SETTINGS",
+            StoreApplication.Login => "EMPLOYEE LOGIN",
+            StoreApplication.Mail => "MAIL",
+            StoreApplication.AppMarket => "APP MARKET",
+            StoreApplication.Todo => "SHIFT BUDDY",
+            StoreApplication.Weather => "WEATHER",
+            StoreApplication.Notepad => "NOTEPAD",
+            StoreApplication.Calculator => "CALCULATOR",
             StoreApplication.SaveLoad => "SAVE / LOAD",
             _ => application.ToString().ToUpperInvariant()
         };
