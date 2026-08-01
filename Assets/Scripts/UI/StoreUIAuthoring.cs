@@ -6,6 +6,11 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class StoreUIAuthoring : MonoBehaviour
 {
+    [SerializeField,HideInInspector] private int authoredLayoutVersion;
+    public int AuthoredLayoutVersion => authoredLayoutVersion;
+#if UNITY_EDITOR
+    public void SetAuthoredLayoutVersion(int version) => authoredLayoutVersion = version;
+#endif
     [Header("Roots")]
     public Canvas Canvas;
     public RectTransform HudRoot;
@@ -77,6 +82,14 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     [Header("Desktop Taskbar")]
     public Button TaskbarStartButton;
     public TextMeshProUGUI TaskbarClockText;
+    public RectTransform StartMenuRoot;
+    public Button StoreToggleButton;
+    public Button RestartComputerButton;
+    public Button ShutDownComputerButton;
+    public RectTransform BootScreenRoot;
+    public TextMeshProUGUI BootStatusText;
+    public Image DesktopWallpaperImage;
+    public Sprite[] DesktopWallpapers;
 
     [Header("Career")]
     [Min(0f)] public float PlayerDailyWage = 80f;
@@ -95,6 +108,7 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     [HideInInspector] public RectTransform[] MobileApplicationContents;
 
     public bool IsComplete =>
+        authoredLayoutVersion == 4 &&
         Canvas != null && HudRoot != null && PauseRoot != null &&
         MainMenuRoot != null && NotificationRoot != null &&
         PriceEditorRoot != null && DeviceRoot != null &&

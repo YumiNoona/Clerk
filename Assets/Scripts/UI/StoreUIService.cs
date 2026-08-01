@@ -57,8 +57,16 @@ public sealed class StoreUIService : MonoBehaviour
     private int marketplaceTab;
     private int selectedMailIndex = -1;
     private int selectedConversationIndex = -1;
+    private StoreApplication? selectedMarketApplication;
     private Camera selectedSecurityCamera;
     private RenderTexture securityPreviewTexture;
+    private bool desktopPoweredOn;
+    private int desktopPowerDay = -1;
+    private Coroutine bootRoutine;
+    private string calculatorInput = "0";
+    private double calculatorAccumulator;
+    private char calculatorPendingOperation;
+    private bool calculatorReplaceInput;
     private bool isRebinding;
     private bool showingMainMenu;
     private Button mainMenuStartButton;
@@ -249,6 +257,11 @@ public sealed class StoreUIService : MonoBehaviour
         deviceRoot.gameObject.SetActive(
             kind == StoreDeviceKind.Desktop);
 
+        if (kind == StoreDeviceKind.Desktop)
+        {
+            EnsureDesktopPoweredOn();
+        }
+
         if (kind == StoreDeviceKind.Desktop && authoredApplicationPages != null)
         {
             for (int i = 0; i < authoredApplicationPages.Length; i++)
@@ -373,6 +386,111 @@ public sealed class StoreUIService : MonoBehaviour
             }
             AttachDeviceToMobileScreen();
         }
+    }
+
+    private void EnsureDesktopPoweredOn()
+    {
+        int day = GameBootstrap.Instance.Days.CurrentDay;
+        if (desktopPoweredOn && desktopPowerDay == day)
+        {
+            return;
+        }
+        desktopPoweredOn = true;
+        desktopPowerDay = day;
+        StartDesktopBoot();
+    }
+
+    private void StartDesktopBoot()
+    {
+        if (authoredUI == null || authoredUI.BootScreenRoot == null)
+        {
+            return;
+        }
+        if (bootRoutine != null)
+        {
+            StopCoroutine(bootRoutine);
+        }
+        bootRoutine = StartCoroutine(BootDesktopRoutine());
+    }
+
+    private IEnumerator BootDesktopRoutine()
+    {
+        authoredUI.StartMenuRoot.gameObject.SetActive(false);
+        authoredUI.BootScreenRoot.gameObject.SetActive(true);
+        authoredUI.BootScreenRoot.SetAsLastSibling();
+        authoredUI.BootStatusText.text = "Starting Clerk OS...";
+        yield return new WaitForSecondsRealtime(0.65f);
+        authoredUI.BootStatusText.text = "Loading store services...";
+        yield return new WaitForSecondsRealtime(0.65f);
+        authoredUI.BootStatusText.text = "Welcome back";
+        yield return new WaitForSecondsRealtime(0.45f);
+        authoredUI.BootScreenRoot.gameObject.SetActive(false);
+        bootRoutine = null;
+    }
+
+    private void ToggleStoreFromStartMenu()
+    {
+        StoreDayController days = GameBootstrap.Instance.Days;
+        if (days.IsDayRunning)
+        {
+            days.EndDay();
+        }
+        else
+        {
+            days.StartDay();
+        }
+        authoredUI.StartMenuRoot.gameObject.SetActive(false);
+        UpdateHud();
+    }
+
+    private void RestartDesktop()
+    {
+        authoredUI.StartMenuRoot.gameObject.SetActive(false);
+        StartDesktopBoot();
+    }
+
+    private void ShutDownDesktop()
+    {
+        desktopPoweredOn = false;
+        authoredUI.StartMenuRoot.gameObject.SetActive(false);
+        CloseDevice();
+    }
+
+    private void ApplySelectedWallpaper()
+    {
+        if (authoredUI == null || authoredUI.DesktopWallpaperImage == null)
+        {
+            return;
+        }
+        Sprite[] wallpapers = authoredUI.DesktopWallpapers;
+        int index = PlayerPrefs.GetInt("Clerk.Desktop.Wallpaper",0);
+        if (wallpapers != null && wallpapers.Length > 0)
+        {
+            index = Mathf.Clamp(index,0,wallpapers.Length - 1);
+            authoredUI.DesktopWallpaperImage.sprite = wallpapers[index];
+            authoredUI.DesktopWallpaperImage.color = Color.white;
+        }
+        else
+        {
+            authoredUI.DesktopWallpaperImage.sprite = null;
+            authoredUI.DesktopWallpaperImage.color = new Color32(26,45,78,255);
+        }
+    }
+
+    private void SelectNextWallpaper()
+    {
+        if (authoredUI == null || authoredUI.DesktopWallpapers == null ||
+            authoredUI.DesktopWallpapers.Length == 0)
+        {
+            GameBootstrap.Instance.Notifications.Show(
+                "Assign Desktop Wallpapers in Store UI Authoring first.",NotificationKind.Error);
+            return;
+        }
+        int next = (PlayerPrefs.GetInt("Clerk.Desktop.Wallpaper",0) + 1) %
+            authoredUI.DesktopWallpapers.Length;
+        PlayerPrefs.SetInt("Clerk.Desktop.Wallpaper",next);
+        PlayerPrefs.Save();
+        ApplySelectedWallpaper();
     }
 
     private void AttachDeviceToMobileScreen()
@@ -515,11 +633,13 @@ public sealed class StoreUIService : MonoBehaviour
             if (pageIndex >= 0 &&
                 pageIndex < authoredApplicationPages.Length)
             {
-                for (int i = 0; i < authoredApplicationPages.Length; i++)
-                {
-                    authoredApplicationPages[i].gameObject.SetActive(
-                        i == pageIndex);
-                }
+                authoredApplicationPages[pageIndex].gameObject.SetActive(true);
+                authoredApplicationPages[pageIndex].SetAsLastSibling();
+
+                DesktopWindowControls windowControls =
+                    authoredApplicationPages[pageIndex]
+                        .GetComponent<DesktopWindowControls>();
+                windowControls?.RestoreForOpen();
 
                 deviceContent = authoredApplicationContents[pageIndex];
             }
@@ -1004,17 +1124,12 @@ public sealed class StoreUIService : MonoBehaviour
         BindButton(authoredUI.CancelPriceButton,ClosePriceEditor);
         BindButton(authoredUI.DeviceCloseButton,CloseDevice);
         BindButton(authoredUI.TaskbarStartButton,() =>
-        {
-            if (GameBootstrap.Instance.Days.IsDayRunning)
-            {
-                GameBootstrap.Instance.Days.EndDay();
-            }
-            else
-            {
-                GameBootstrap.Instance.Days.StartDay();
-            }
-            UpdateHud();
-        });
+            authoredUI.StartMenuRoot.gameObject.SetActive(
+                !authoredUI.StartMenuRoot.gameObject.activeSelf));
+        BindButton(authoredUI.StoreToggleButton,ToggleStoreFromStartMenu);
+        BindButton(authoredUI.RestartComputerButton,RestartDesktop);
+        BindButton(authoredUI.ShutDownComputerButton,ShutDownDesktop);
+        ApplySelectedWallpaper();
 
         StoreApplication[] applications = GetNavigationApplications();
         int count = Mathf.Min(
@@ -2177,64 +2292,210 @@ public sealed class StoreUIService : MonoBehaviour
                 ". New responsibilities and career opportunities may now be available.");
         }
 
-        AddSectionTitle(parent,"MAIL · INBOX");
+        AddSectionTitle(parent,"MAIL");
+        RectTransform mailShell = UIFactory.Panel(parent,"Mail Workspace",new Color32(248,250,252,255));
+        UIFactory.Size(mailShell,0f,590f);
+        RectTransform inbox = UIFactory.Panel(mailShell,"Inbox",new Color32(241,245,249,255));
+        inbox.anchorMin = Vector2.zero;
+        inbox.anchorMax = new Vector2(0.38f,1f);
+        inbox.offsetMin = inbox.offsetMax = Vector2.zero;
+        VerticalLayoutGroup inboxLayout = UIFactory.Vertical(inbox,4f,10f);
+        inboxLayout.childForceExpandWidth = true;
+        TextMeshProUGUI inboxTitle = UIFactory.Text(inbox,"Inbox Title","Inbox",24f,TextAlignmentOptions.Left);
+        inboxTitle.color = new Color32(30,41,59,255);
+        UIFactory.Size(inboxTitle,0f,48f);
+        RectTransform readingPane = UIFactory.Panel(mailShell,"Reading Pane",Color.white);
+        readingPane.anchorMin = new Vector2(0.38f,0f);
+        readingPane.anchorMax = Vector2.one;
+        readingPane.offsetMin = new Vector2(1f,0f);
+        readingPane.offsetMax = Vector2.zero;
         for (int i = 0; i < subjects.Count; i++)
         {
             int captured = i;
             bool read = PlayerPrefs.GetInt("Clerk.Mail.Read." + day + "." + i,0) == 1;
-            AddActionButton(parent,(read ? "" : "NEW · ") + senders[i] + " — " + subjects[i],() =>
+            Button mail = UIFactory.Button(inbox,"Message " + i,
+                (read ? "" : "NEW  ") + senders[i] + "\n" + subjects[i],() =>
             {
                 selectedMailIndex = captured;
                 PlayerPrefs.SetInt("Clerk.Mail.Read." + day + "." + captured,1);
                 PlayerPrefs.Save();
                 ShowApplication(StoreApplication.Mail);
-            });
+            },read ? new Color32(226,232,240,255) : new Color32(219,234,254,255));
+            UIFactory.Size(mail,0f,68f);
+            TextMeshProUGUI mailLabel = mail.GetComponentInChildren<TextMeshProUGUI>();
+            mailLabel.alignment = TextAlignmentOptions.Left;
+            mailLabel.color = new Color32(30,41,59,255);
+            mailLabel.rectTransform.offsetMin = new Vector2(12f,4f);
+            mailLabel.rectTransform.offsetMax = new Vector2(-8f,-4f);
         }
 
         if (selectedMailIndex >= 0 && selectedMailIndex < bodies.Count)
         {
-            AddSectionTitle(parent,subjects[selectedMailIndex]);
-            AddMessage(parent,"FROM · " + senders[selectedMailIndex],bodies[selectedMailIndex]);
-            AddActionButton(parent,"CLOSE MESSAGE",() =>
-            {
-                selectedMailIndex = -1;
-                ShowApplication(StoreApplication.Mail);
-            });
+            TextMeshProUGUI subject = UIFactory.Text(readingPane,"Subject",
+                subjects[selectedMailIndex],26f,TextAlignmentOptions.TopLeft);
+            subject.color = new Color32(15,23,42,255);
+            subject.rectTransform.anchorMin = new Vector2(0f,0.78f);
+            subject.rectTransform.anchorMax = new Vector2(1f,0.96f);
+            subject.rectTransform.offsetMin = new Vector2(24f,0f);
+            subject.rectTransform.offsetMax = new Vector2(-24f,0f);
+            TextMeshProUGUI from = UIFactory.Text(readingPane,"From",
+                "From: " + senders[selectedMailIndex],16f,TextAlignmentOptions.TopLeft);
+            from.color = new Color32(71,85,105,255);
+            from.rectTransform.anchorMin = new Vector2(0f,0.68f);
+            from.rectTransform.anchorMax = new Vector2(1f,0.80f);
+            from.rectTransform.offsetMin = new Vector2(24f,0f);
+            from.rectTransform.offsetMax = new Vector2(-24f,0f);
+            TextMeshProUGUI body = UIFactory.Text(readingPane,"Body",
+                bodies[selectedMailIndex],20f,TextAlignmentOptions.TopLeft);
+            body.color = new Color32(30,41,59,255);
+            body.rectTransform.anchorMin = new Vector2(0f,0.12f);
+            body.rectTransform.anchorMax = new Vector2(1f,0.68f);
+            body.rectTransform.offsetMin = new Vector2(24f,12f);
+            body.rectTransform.offsetMax = new Vector2(-24f,-12f);
+        }
+        else
+        {
+            TextMeshProUGUI empty = UIFactory.Text(readingPane,"No Selection",
+                "Select an email from your inbox",20f,TextAlignmentOptions.Center);
+            empty.color = new Color32(100,116,139,255);
         }
     }
 
     private void BuildAppMarket(Transform parent)
     {
         AddSectionTitle(parent,"CLERK APP MARKET");
-        AddMessage(parent,"EDITOR'S PICK",
-            "Install useful software for your store desktop. Installed apps appear as shortcuts immediately.");
-        AddMarketApp(parent,StoreApplication.Messages,"Staff Chat","Business","14 MB","4.2");
-        AddMarketApp(parent,StoreApplication.Security,"SecuCam","Business","18 MB","4.6");
-        AddMarketApp(parent,StoreApplication.Todo,"Shift Buddy","Business","8 MB","4.6");
-        AddMarketApp(parent,StoreApplication.Weather,"Store Weather","Tools","6 MB","4.5");
-        AddMarketApp(parent,StoreApplication.Notepad,"Clerk Notes","Tools","2 MB","4.1");
-        AddMarketApp(parent,StoreApplication.Calculator,"Cash Counter+","Tools","5 MB","4.4");
+        if (selectedMarketApplication.HasValue)
+        {
+            BuildMarketProductPage(parent,selectedMarketApplication.Value);
+            return;
+        }
+
+        AddMessage(parent,"FEATURED SOFTWARE",
+            "Discover tools for communication, security, productivity, and daily store operations.");
+        AddMarketCard(parent,StoreApplication.Messages,"Staff Chat Pro","Clerk Communications","Business","14 MB","4.2",
+            "Keep conversations with management, suppliers, and coworkers organized.");
+        AddMarketCard(parent,StoreApplication.Security,"SecuCam","Clerk Security Labs","Business","18 MB","4.6",
+            "Monitor installed store cameras through a dedicated live-view dashboard.");
+        AddMarketCard(parent,StoreApplication.Todo,"Shift Buddy","Northstar Productivity","Productivity","8 MB","4.6",
+            "Track shift assignments, objective progress, and claim completed rewards.");
+        AddMarketCard(parent,StoreApplication.Weather,"Store Weather","District Forecast Co.","Tools","6 MB","4.5",
+            "Plan deliveries and staffing using daily local conditions and advisories.");
+        AddMarketCard(parent,StoreApplication.Notepad,"Clerk Notes","Plainsoft","Productivity","2 MB","4.1",
+            "A lightweight persistent notebook for stocking lists and shift reminders.");
+        AddMarketCard(parent,StoreApplication.Calculator,"Cash Counter+","Ledger Tools","Tools","5 MB","4.4",
+            "Fast arithmetic for pricing, margins, deliveries, and register checks.");
     }
 
-    private void AddMarketApp(Transform parent,StoreApplication application,
-        string productName,string category,string size,string rating)
+    private void AddMarketCard(Transform parent,StoreApplication application,
+        string productName,string developer,string category,string size,string rating,string description)
     {
-        bool installed = IsApplicationInstalled(application);
-        AddMetric(parent,productName,
-            "RATING " + rating + " | " + size + " | " + category +
-            (installed ? " | INSTALLED" : string.Empty));
-        AddActionButton(parent,installed ? "OPEN " + productName.ToUpperInvariant()
-            : "INSTALL " + productName.ToUpperInvariant(),() =>
+        RectTransform card = UIFactory.Panel(parent,productName + " Card",new Color32(30,41,59,255));
+        UIFactory.Size(card,0f,190f);
+        Sprite icon = GetApplicationIcon(application);
+        RectTransform thumbnail = UIFactory.Panel(card,"Thumbnail",new Color32(51,65,85,255));
+        thumbnail.anchorMin = new Vector2(0.025f,0.15f);
+        thumbnail.anchorMax = new Vector2(0.19f,0.85f);
+        thumbnail.offsetMin = thumbnail.offsetMax = Vector2.zero;
+        Image thumbnailImage = thumbnail.GetComponent<Image>();
+        thumbnailImage.sprite = icon;
+        thumbnailImage.preserveAspect = true;
+        TextMeshProUGUI title = UIFactory.Text(card,"Title",productName,26f,TextAlignmentOptions.TopLeft);
+        title.rectTransform.anchorMin = new Vector2(0.22f,0.60f);
+        title.rectTransform.anchorMax = new Vector2(0.76f,0.88f);
+        title.rectTransform.offsetMin = title.rectTransform.offsetMax = Vector2.zero;
+        TextMeshProUGUI details = UIFactory.Text(card,"Details",
+            developer + "\n" + description + "\nRating " + rating + "  |  " + size + "  |  " + category,
+            17f,TextAlignmentOptions.TopLeft);
+        details.color = UIFactory.Muted;
+        details.rectTransform.anchorMin = new Vector2(0.22f,0.12f);
+        details.rectTransform.anchorMax = new Vector2(0.76f,0.62f);
+        details.rectTransform.offsetMin = details.rectTransform.offsetMax = Vector2.zero;
+        Button view = UIFactory.Button(card,"View Details","VIEW DETAILS",() =>
         {
-            if (installed)
-            {
-                ShowApplication(application);
-            }
-            else
-            {
-                InstallApplication(application);
-            }
-        });
+            selectedMarketApplication = application;
+            ShowApplication(StoreApplication.AppMarket);
+        },UIFactory.Accent);
+        RectTransform viewRect = view.GetComponent<RectTransform>();
+        viewRect.anchorMin = new Vector2(0.80f,0.34f);
+        viewRect.anchorMax = new Vector2(0.975f,0.66f);
+        viewRect.offsetMin = viewRect.offsetMax = Vector2.zero;
+    }
+
+    private void BuildMarketProductPage(Transform parent,StoreApplication application)
+    {
+        GetMarketMetadata(application,out string name,out string developer,out string category,
+            out string size,out string rating,out string description);
+        Button back = UIFactory.Button(parent,"Back","BACK TO STORE",() =>
+        {
+            selectedMarketApplication = null;
+            ShowApplication(StoreApplication.AppMarket);
+        },new Color32(51,65,85,255));
+        UIFactory.Size(back,220f,46f);
+        RectTransform hero = UIFactory.Panel(parent,"Product Hero",new Color32(30,41,59,255));
+        UIFactory.Size(hero,0f,270f);
+        RectTransform iconRoot = UIFactory.Panel(hero,"App Icon",Color.clear);
+        iconRoot.anchorMin = new Vector2(0.04f,0.18f);
+        iconRoot.anchorMax = new Vector2(0.22f,0.82f);
+        iconRoot.offsetMin = iconRoot.offsetMax = Vector2.zero;
+        Image icon = iconRoot.GetComponent<Image>();
+        icon.sprite = GetApplicationIcon(application);
+        icon.preserveAspect = true;
+        TextMeshProUGUI title = UIFactory.Text(hero,"Product Name",name,34f,TextAlignmentOptions.TopLeft);
+        title.rectTransform.anchorMin = new Vector2(0.26f,0.60f);
+        title.rectTransform.anchorMax = new Vector2(0.72f,0.86f);
+        title.rectTransform.offsetMin = title.rectTransform.offsetMax = Vector2.zero;
+        TextMeshProUGUI developerText = UIFactory.Text(hero,"Developer",
+            developer + "\n" + category + "  |  " + size + "  |  Rating " + rating,
+            18f,TextAlignmentOptions.TopLeft);
+        developerText.color = UIFactory.Muted;
+        developerText.rectTransform.anchorMin = new Vector2(0.26f,0.28f);
+        developerText.rectTransform.anchorMax = new Vector2(0.72f,0.62f);
+        developerText.rectTransform.offsetMin = developerText.rectTransform.offsetMax = Vector2.zero;
+        bool installed = IsApplicationInstalled(application);
+        Button action = UIFactory.Button(hero,"Install Or Open",installed ? "OPEN" : "INSTALL",() =>
+        {
+            if (installed) ShowApplication(application);
+            else InstallApplication(application);
+        },UIFactory.Accent);
+        RectTransform actionRect = action.GetComponent<RectTransform>();
+        actionRect.anchorMin = new Vector2(0.78f,0.36f);
+        actionRect.anchorMax = new Vector2(0.96f,0.64f);
+        actionRect.offsetMin = actionRect.offsetMax = Vector2.zero;
+        AddSectionTitle(parent,"ABOUT THIS APP");
+        AddMessage(parent,"DESCRIPTION",description);
+        AddSectionTitle(parent,"RATINGS & REVIEWS");
+        AddMetric(parent,"OVERALL RATING",rating + " / 5");
+        AddMessage(parent,"Jamie R. - Store Clerk","Useful during busy shifts and easy to understand.");
+        AddMessage(parent,"Morgan T. - Manager","Reliable tools with a clean workflow for store operations.");
+    }
+
+    private static void GetMarketMetadata(StoreApplication app,out string name,out string developer,
+        out string category,out string size,out string rating,out string description)
+    {
+        switch (app)
+        {
+            case StoreApplication.Messages: name="Staff Chat Pro"; developer="Clerk Communications"; category="Business"; size="14 MB"; rating="4.2"; description="Keep conversations with management, suppliers, and coworkers organized."; break;
+            case StoreApplication.Security: name="SecuCam"; developer="Clerk Security Labs"; category="Business"; size="18 MB"; rating="4.6"; description="Monitor installed store cameras through a dedicated live-view dashboard."; break;
+            case StoreApplication.Todo: name="Shift Buddy"; developer="Northstar Productivity"; category="Productivity"; size="8 MB"; rating="4.6"; description="Track shift assignments, objective progress, and claim completed rewards."; break;
+            case StoreApplication.Weather: name="Store Weather"; developer="District Forecast Co."; category="Tools"; size="6 MB"; rating="4.5"; description="Plan deliveries and staffing using daily local conditions and advisories."; break;
+            case StoreApplication.Notepad: name="Clerk Notes"; developer="Plainsoft"; category="Productivity"; size="2 MB"; rating="4.1"; description="A lightweight persistent notebook for stocking lists and shift reminders."; break;
+            default: name="Cash Counter+"; developer="Ledger Tools"; category="Tools"; size="5 MB"; rating="4.4"; description="Fast arithmetic for pricing, margins, deliveries, and register checks."; break;
+        }
+    }
+
+    private Sprite GetApplicationIcon(StoreApplication app)
+    {
+        if (authoredUI == null) return null;
+        return app switch
+        {
+            StoreApplication.Messages => authoredUI.MessagesIcon,
+            StoreApplication.Security => authoredUI.SecurityIcon,
+            StoreApplication.Todo => authoredUI.TodoIcon,
+            StoreApplication.Weather => authoredUI.WeatherIcon,
+            StoreApplication.Notepad => authoredUI.NotepadIcon,
+            StoreApplication.Calculator => authoredUI.CalculatorIcon,
+            _ => null
+        };
     }
 
     private void BuildTodo(Transform parent)
@@ -2297,29 +2558,115 @@ public sealed class StoreUIService : MonoBehaviour
     private void BuildCalculator(Transform parent)
     {
         AddSectionTitle(parent,"CASH COUNTER+");
-        TMP_InputField first = AddDesktopInput(parent,"First number",false);
-        TMP_InputField second = AddDesktopInput(parent,"Second number",false);
-        TextMeshProUGUI result = UIFactory.Text(parent,"Result","RESULT: 0",24f,
-            TextAlignmentOptions.Left);
-        UIFactory.Size(result,0f,55f);
-        void Calculate(char operation)
+        RectTransform stage = UIFactory.Panel(parent,"Calculator Stage",Color.clear);
+        UIFactory.Size(stage,0f,560f);
+        RectTransform calculator = UIFactory.Panel(stage,"Calculator",new Color32(15,23,42,255));
+        calculator.anchorMin = calculator.anchorMax = new Vector2(0.5f,0.5f);
+        calculator.sizeDelta = new Vector2(440f,540f);
+        calculator.anchoredPosition = Vector2.zero;
+        TextMeshProUGUI history = UIFactory.Text(calculator,"Operation","",18f,
+            TextAlignmentOptions.BottomRight);
+        history.color = UIFactory.Muted;
+        history.rectTransform.anchorMin = new Vector2(0.06f,0.86f);
+        history.rectTransform.anchorMax = new Vector2(0.94f,0.96f);
+        history.rectTransform.offsetMin = history.rectTransform.offsetMax = Vector2.zero;
+        TextMeshProUGUI display = UIFactory.Text(calculator,"Display",calculatorInput,48f,
+            TextAlignmentOptions.Right);
+        display.rectTransform.anchorMin = new Vector2(0.06f,0.70f);
+        display.rectTransform.anchorMax = new Vector2(0.94f,0.88f);
+        display.rectTransform.offsetMin = display.rectTransform.offsetMax = Vector2.zero;
+        RectTransform keypad = UIFactory.Panel(calculator,"Keypad",Color.clear);
+        keypad.anchorMin = new Vector2(0.05f,0.05f);
+        keypad.anchorMax = new Vector2(0.95f,0.67f);
+        keypad.offsetMin = keypad.offsetMax = Vector2.zero;
+        GridLayoutGroup grid = keypad.gameObject.AddComponent<GridLayoutGroup>();
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 4;
+        grid.spacing = new Vector2(9f,9f);
+        grid.padding = new RectOffset(4,4,4,4);
+        grid.cellSize = new Vector2(88f,58f);
+        string[] keys =
         {
-            double.TryParse(first.text,NumberStyles.Float,CultureInfo.InvariantCulture,out double a);
-            double.TryParse(second.text,NumberStyles.Float,CultureInfo.InvariantCulture,out double b);
-            double value = operation switch
-            {
-                '+' => a + b,
-                '-' => a - b,
-                '*' => a * b,
-                '/' => Math.Abs(b) < 0.000001d ? double.NaN : a / b,
-                _ => 0d
-            };
-            result.text = "RESULT: " + (double.IsNaN(value) ? "CANNOT DIVIDE BY ZERO" : value.ToString("0.##"));
+            "C","BACK","/","*",
+            "7","8","9","-",
+            "4","5","6","+",
+            "1","2","3","=",
+            "0",".","+/-","="
+        };
+        for (int i = 0; i < keys.Length; i++)
+        {
+            string key = keys[i];
+            Color keyColor = "+-*/=".Contains(key)
+                ? new Color32(37,99,235,255)
+                : key == "C" || key == "BACK"
+                    ? new Color32(71,85,105,255)
+                    : new Color32(51,65,85,255);
+            UIFactory.Button(keypad,"Key " + i,key,() =>
+                HandleCalculatorKey(key,display,history),keyColor);
         }
-        AddActionButton(parent,"ADD",() => Calculate('+'));
-        AddActionButton(parent,"SUBTRACT",() => Calculate('-'));
-        AddActionButton(parent,"MULTIPLY",() => Calculate('*'));
-        AddActionButton(parent,"DIVIDE",() => Calculate('/'));
+    }
+
+    private void HandleCalculatorKey(string key,TextMeshProUGUI display,TextMeshProUGUI history)
+    {
+        if (key.Length == 1 && char.IsDigit(key[0]))
+        {
+            if (calculatorReplaceInput || calculatorInput == "0") calculatorInput = key;
+            else if (calculatorInput.Length < 14) calculatorInput += key;
+            calculatorReplaceInput = false;
+        }
+        else if (key == ".")
+        {
+            if (calculatorReplaceInput) calculatorInput = "0";
+            if (!calculatorInput.Contains(".")) calculatorInput += ".";
+            calculatorReplaceInput = false;
+        }
+        else if (key == "C")
+        {
+            calculatorInput = "0";
+            calculatorAccumulator = 0d;
+            calculatorPendingOperation = '\0';
+            history.text = string.Empty;
+        }
+        else if (key == "BACK")
+        {
+            calculatorInput = calculatorInput.Length > 1
+                ? calculatorInput.Substring(0,calculatorInput.Length - 1) : "0";
+        }
+        else if (key == "+/-")
+        {
+            calculatorInput = calculatorInput.StartsWith("-")
+                ? calculatorInput.Substring(1) : "-" + calculatorInput;
+        }
+        else if (key == "=" || "+-*/".Contains(key))
+        {
+            double.TryParse(calculatorInput,NumberStyles.Float,CultureInfo.InvariantCulture,out double value);
+            if (calculatorPendingOperation != '\0')
+            {
+                calculatorAccumulator = calculatorPendingOperation switch
+                {
+                    '+' => calculatorAccumulator + value,
+                    '-' => calculatorAccumulator - value,
+                    '*' => calculatorAccumulator * value,
+                    '/' => Math.Abs(value) < 0.000001d ? double.NaN : calculatorAccumulator / value,
+                    _ => value
+                };
+                calculatorInput = double.IsNaN(calculatorAccumulator)
+                    ? "ERROR" : calculatorAccumulator.ToString("0.########",CultureInfo.InvariantCulture);
+            }
+            else calculatorAccumulator = value;
+            if (key == "=")
+            {
+                calculatorPendingOperation = '\0';
+                history.text = string.Empty;
+            }
+            else
+            {
+                calculatorPendingOperation = key[0];
+                history.text = calculatorInput + "  " + key;
+            }
+            calculatorReplaceInput = true;
+        }
+        display.text = calculatorInput;
     }
 
     private static TMP_InputField AddDesktopInput(Transform parent,string placeholder,bool multiline)
@@ -2350,7 +2697,19 @@ public sealed class StoreUIService : MonoBehaviour
 
     private void BuildSettings(Transform parent)
     {
-        AddSectionTitle(parent,"SETTINGS");
+        AddSectionTitle(parent,"SYSTEM SETTINGS");
+        AddSectionTitle(parent,"PERSONALIZATION");
+        AddMetric(parent,"DESKTOP WALLPAPER",
+            authoredUI != null && authoredUI.DesktopWallpapers != null &&
+            authoredUI.DesktopWallpapers.Length > 0
+                ? "Wallpaper " + (PlayerPrefs.GetInt("Clerk.Desktop.Wallpaper",0) + 1)
+                : "No wallpapers assigned");
+        AddActionButton(parent,"NEXT WALLPAPER",() =>
+        {
+            SelectNextWallpaper();
+            ShowApplication(StoreApplication.Settings);
+        });
+        AddSectionTitle(parent,"AUDIO");
         GameSettingsService settings =
             GameBootstrap.Instance.Settings;
 
@@ -2383,6 +2742,7 @@ public sealed class StoreUIService : MonoBehaviour
                 ShowApplication(activeApplication);
             });
 
+        AddSectionTitle(parent,"CONTROLS & DISPLAY");
         AddMetric(
             parent,
             "LOOK SENSITIVITY",
@@ -2574,15 +2934,23 @@ public sealed class StoreUIService : MonoBehaviour
         string label,
         UnityEngine.Events.UnityAction action)
     {
+        RectTransform actionRow = UIFactory.Panel(
+            parent,label + " Actions",Color.clear);
+        UIFactory.Size(actionRow,0f,58f);
+        HorizontalLayoutGroup layout = UIFactory.Horizontal(actionRow,8f,0f);
+        layout.childForceExpandWidth = false;
+        RectTransform spacer = UIFactory.Panel(actionRow,"Spacer",Color.clear);
+        LayoutElement spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
+        spacerLayout.flexibleWidth = 1f;
         Button button =
             UIFactory.Button(
-                parent,
+                actionRow,
                 label,
                 label,
                 action,
                 UIFactory.Accent);
 
-        UIFactory.Size(button,0f,54f);
+        UIFactory.Size(button,Mathf.Clamp(180f + label.Length * 4f,220f,380f),46f);
     }
 
     private static void AddPurchaseRow(

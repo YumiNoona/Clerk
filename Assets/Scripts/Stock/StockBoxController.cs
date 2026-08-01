@@ -177,6 +177,8 @@ public class StockBoxController :
             return;
         }
 
+        UpdateShelfPlacementGuide(player,interactionRay);
+
         if (player.WasPressed(
                 GameplayAction.Use))
         {
@@ -211,6 +213,23 @@ public class StockBoxController :
             nextStockTime =
                 Time.time + StockingInterval;
         }
+    }
+
+    private void UpdateShelfPlacementGuide(
+        PlayerInteractionController player,
+        Ray interactionRay)
+    {
+        PlacementGuideRenderer guide = PlacementGuideRenderer.Instance;
+        if (guide == null) return;
+        if (!isOpen || Quantity <= 0 || Product == null ||
+            !player.TryGetComponentInRay(interactionRay,out ShelfSpaceController shelf,out _))
+        {
+            guide.Hide();
+            return;
+        }
+        bool valid = shelf.TryGetNextPlacementPreview(
+            Product,out Vector3 position,out Quaternion rotation,out int remaining);
+        guide.ShowShelfSlot(shelf,position,rotation,new Vector2(0.22f,0.22f),valid,remaining);
     }
 
     public string GetHeldPrompt(
@@ -302,6 +321,7 @@ public class StockBoxController :
 
     public void Release()
     {
+        PlacementGuideRenderer.Instance?.Hide();
         isHeld = false;
         nextStockTime = 0f;
 
@@ -736,6 +756,7 @@ public class StockBoxController :
 
     private void OnDestroy()
     {
+        PlacementGuideRenderer.Instance?.Hide();
         ClearRuntimeContents();
     }
 

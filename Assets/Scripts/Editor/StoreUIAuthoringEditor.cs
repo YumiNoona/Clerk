@@ -222,6 +222,7 @@ public static class StoreUIHierarchyBuilder
         BuildNotifications(ui);
         BuildPriceEditor(ui);
         BuildDevice(ui);
+        ui.SetAuthoredLayoutVersion(4);
 
         GameObject events = new GameObject(
             "UI Event System",
@@ -365,15 +366,27 @@ public static class StoreUIHierarchyBuilder
         outline.effectColor = new Color(0.25f,0.28f,0.35f,1f);
         outline.effectDistance = new Vector2(3f,-3f);
 
+        RectTransform wallpaper = UIFactory.Panel(
+            ui.DeviceFrame,"Desktop Wallpaper",new Color32(26,45,78,255));
+        wallpaper.anchorMin = new Vector2(0f,0.075f);
+        wallpaper.anchorMax = new Vector2(1f,0.94f);
+        wallpaper.offsetMin = wallpaper.offsetMax = Vector2.zero;
+        wallpaper.SetAsFirstSibling();
+        ui.DesktopWallpaperImage = wallpaper.GetComponent<Image>();
+        ui.DesktopWallpaperImage.preserveAspect = false;
+
         RectTransform header = UIFactory.Panel(ui.DeviceFrame,"Window Title Bar",UIFactory.Surface);
         header.anchorMin = new Vector2(0.20f,0.92f);
         header.anchorMax = Vector2.one;
         header.offsetMin = header.offsetMax = Vector2.zero;
-        UIFactory.Horizontal(header,10f,14f);
+        HorizontalLayoutGroup headerLayout = UIFactory.Horizontal(header,10f,14f);
+        headerLayout.childForceExpandWidth = false;
         ui.DeviceBrand = UIFactory.Text(header,"Brand","CLERK DESKTOP",22f,TextAlignmentOptions.Left);
         ui.DeviceBrand.color = UIFactory.Accent;
         UIFactory.Size(ui.DeviceBrand,180f,0f);
         ui.DeviceTitle = UIFactory.Text(header,"Application Title","OVERVIEW",22f,TextAlignmentOptions.Center);
+        LayoutElement titleLayout = ui.DeviceTitle.gameObject.AddComponent<LayoutElement>();
+        titleLayout.flexibleWidth = 1f;
         ui.DeviceCloseButton = UIFactory.Button(header,"Close","X",null,UIFactory.Danger);
         UIFactory.Size(ui.DeviceCloseButton,54f,48f);
 
@@ -406,19 +419,53 @@ public static class StoreUIHierarchyBuilder
         ui.TaskbarClockText.rectTransform.offsetMin = ui.TaskbarClockText.rectTransform.offsetMax = Vector2.zero;
         ui.TaskbarClockText.color = new Color32(225,230,240,255);
 
+        ui.StartMenuRoot = UIFactory.Panel(
+            ui.DeviceFrame,"Start Menu",new Color32(30,41,59,252));
+        ui.StartMenuRoot.anchorMin = new Vector2(0.01f,0.085f);
+        ui.StartMenuRoot.anchorMax = new Vector2(0.25f,0.48f);
+        ui.StartMenuRoot.offsetMin = ui.StartMenuRoot.offsetMax = Vector2.zero;
+        UIFactory.Vertical(ui.StartMenuRoot,10f,18f);
+        TextMeshProUGUI startTitle = UIFactory.Text(
+            ui.StartMenuRoot,"Title","CLERK OS",24f,TextAlignmentOptions.Left);
+        UIFactory.Size(startTitle,0f,48f);
+        startTitle.color = UIFactory.Accent;
+        ui.StoreToggleButton = MenuButton(ui.StartMenuRoot,"OPEN / CLOSE STORE",UIFactory.Accent,48f);
+        ui.RestartComputerButton = MenuButton(ui.StartMenuRoot,"RESTART",null,44f);
+        ui.ShutDownComputerButton = MenuButton(ui.StartMenuRoot,"SHUT DOWN",UIFactory.Danger,44f);
+        ui.StartMenuRoot.gameObject.SetActive(false);
+
+        ui.BootScreenRoot = UIFactory.Panel(
+            ui.DeviceFrame,"Boot Screen",new Color32(8,15,30,255));
+        ui.BootScreenRoot.anchorMin = new Vector2(0f,0.075f);
+        ui.BootScreenRoot.anchorMax = new Vector2(1f,1f);
+        ui.BootScreenRoot.offsetMin = ui.BootScreenRoot.offsetMax = Vector2.zero;
+        TextMeshProUGUI bootLogo = UIFactory.Text(
+            ui.BootScreenRoot,"Logo","CLERK OS",54f,TextAlignmentOptions.Center);
+        bootLogo.rectTransform.anchorMin = new Vector2(0.25f,0.42f);
+        bootLogo.rectTransform.anchorMax = new Vector2(0.75f,0.62f);
+        bootLogo.rectTransform.offsetMin = bootLogo.rectTransform.offsetMax = Vector2.zero;
+        bootLogo.color = UIFactory.Accent;
+        ui.BootStatusText = UIFactory.Text(
+            ui.BootScreenRoot,"Status","Starting...",18f,TextAlignmentOptions.Center);
+        ui.BootStatusText.rectTransform.anchorMin = new Vector2(0.25f,0.34f);
+        ui.BootStatusText.rectTransform.anchorMax = new Vector2(0.75f,0.44f);
+        ui.BootStatusText.rectTransform.offsetMin = ui.BootStatusText.rectTransform.offsetMax = Vector2.zero;
+        ui.BootStatusText.color = UIFactory.Muted;
+        ui.BootScreenRoot.gameObject.SetActive(false);
+
         ui.DeviceNavigation = UIFactory.Panel(
-            ui.DeviceFrame,"Desktop App Launcher",new Color32(16,25,42,255));
+            ui.DeviceFrame,"Desktop App Launcher",Color.clear);
         ui.DeviceNavigation.anchorMin = new Vector2(0f,0.075f);
-        ui.DeviceNavigation.anchorMax = new Vector2(0.20f,0.92f);
+        ui.DeviceNavigation.anchorMax = new Vector2(1f,0.92f);
         ui.DeviceNavigation.offsetMin = ui.DeviceNavigation.offsetMax = Vector2.zero;
         GridLayoutGroup launcher =
             ui.DeviceNavigation.gameObject.AddComponent<GridLayoutGroup>();
-        launcher.padding = new RectOffset(20,20,24,18);
-        launcher.spacing = new Vector2(14f,18f);
+        launcher.padding = new RectOffset(22,20,24,18);
+        launcher.spacing = new Vector2(10f,18f);
         launcher.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        launcher.constraintCount = 3;
-        launcher.cellSize = new Vector2(82f,82f);
-        launcher.childAlignment = TextAnchor.UpperCenter;
+        launcher.constraintCount = 4;
+        launcher.cellSize = new Vector2(104f,112f);
+        launcher.childAlignment = TextAnchor.UpperLeft;
 
         string[] apps =
         {
@@ -457,8 +504,8 @@ public static class StoreUIHierarchyBuilder
         }
         ui.ApplicationButtons = buttons.ToArray();
 
-        ui.DeviceBody = UIFactory.Panel(ui.DeviceFrame,"Workspace",UIFactory.Background);
-        ui.DeviceBody.anchorMin = new Vector2(0.20f,0.075f);
+        ui.DeviceBody = UIFactory.Panel(ui.DeviceFrame,"Workspace",Color.clear);
+        ui.DeviceBody.anchorMin = new Vector2(0f,0.075f);
         ui.DeviceBody.anchorMax = new Vector2(1f,0.92f);
         ui.DeviceBody.offsetMin = ui.DeviceBody.offsetMax = Vector2.zero;
 
@@ -472,8 +519,8 @@ public static class StoreUIHierarchyBuilder
         {
             RectTransform page = UIFactory.Panel(
                 pages,apps[i] + " Software Window",desktopBackground);
-            page.anchorMin = new Vector2(0.025f,0.03f);
-            page.anchorMax = new Vector2(0.975f,0.97f);
+            page.anchorMin = new Vector2(0.18f,0.10f);
+            page.anchorMax = new Vector2(0.88f,0.93f);
             page.offsetMin = page.offsetMax = Vector2.zero;
             Outline windowOutline = page.gameObject.AddComponent<Outline>();
             windowOutline.effectColor = new Color32(55,65,84,255);
@@ -485,6 +532,7 @@ public static class StoreUIHierarchyBuilder
             pageHeader.anchorMax = Vector2.one;
             pageHeader.offsetMin = new Vector2(14f,6f);
             pageHeader.offsetMax = new Vector2(-14f,-8f);
+            pageHeader.GetComponent<Image>().raycastTarget = true;
             DesktopWindowDragHandle drag =
                 pageHeader.gameObject.AddComponent<DesktopWindowDragHandle>();
             drag.Window = page;
@@ -495,7 +543,11 @@ public static class StoreUIHierarchyBuilder
             titleRect.anchorMin = Vector2.zero;
             titleRect.anchorMax = Vector2.one;
             titleRect.offsetMin = new Vector2(18f,0f);
-            titleRect.offsetMax = new Vector2(-18f,0f);
+            titleRect.offsetMax = new Vector2(-158f,0f);
+
+            Button minimize = BuildWindowControl(pageHeader,"Minimize","-",0.82f,new Color32(71,85,105,255));
+            Button maximize = BuildWindowControl(pageHeader,"Maximize","O",0.88f,new Color32(71,85,105,255));
+            Button closeWindow = BuildWindowControl(pageHeader,"Close","X",0.94f,new Color32(239,68,68,255));
 
             RectTransform liveArea = UIFactory.Panel(
                 page,"Live Content Area",Color.clear);
@@ -507,12 +559,47 @@ public static class StoreUIHierarchyBuilder
                 liveArea,"Scrollable Content");
             UIFactory.Vertical(content,10f,18f);
 
+            DesktopWindowControls controls =
+                page.gameObject.AddComponent<DesktopWindowControls>();
+            controls.Window = page;
+            controls.Content = liveArea.gameObject;
+            controls.MinimizeButton = minimize;
+            controls.MaximizeButton = maximize;
+            controls.CloseButton = closeWindow;
+            AttachWindowCommand(minimize,controls,DesktopWindowCommand.Minimize);
+            AttachWindowCommand(maximize,controls,DesktopWindowCommand.Maximize);
+            AttachWindowCommand(closeWindow,controls,DesktopWindowCommand.Close);
+
             ui.ApplicationPages[i] = page;
             ui.ApplicationContents[i] = content;
             page.gameObject.SetActive(false);
         }
 
         ui.DeviceContent = ui.ApplicationContents[0];
+        ui.StartMenuRoot.SetAsLastSibling();
+        ui.BootScreenRoot.SetAsLastSibling();
+    }
+
+    private static Button BuildWindowControl(
+        Transform parent,string name,string label,float anchorX,Color color)
+    {
+        Button button = UIFactory.Button(parent,name,label,null,color);
+        RectTransform rect = button.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(anchorX,0.18f);
+        rect.anchorMax = new Vector2(anchorX + 0.05f,0.82f);
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>();
+        text.fontSize = 16f;
+        return button;
+    }
+
+    private static void AttachWindowCommand(
+        Button button,DesktopWindowControls controls,DesktopWindowCommand command)
+    {
+        DesktopWindowControlButton handler =
+            button.gameObject.AddComponent<DesktopWindowControlButton>();
+        handler.Controls = controls;
+        handler.Command = command;
     }
 
     private static Button BuildDesktopAppShortcut(
@@ -524,9 +611,10 @@ public static class StoreUIHierarchyBuilder
         Button button = UIFactory.Button(
             shortcut,"Open " + appName,glyph,null,tileColor);
         RectTransform tile = button.GetComponent<RectTransform>();
-        tile.anchorMin = new Vector2(0.22f,0.30f);
-        tile.anchorMax = new Vector2(0.78f,1f);
-        tile.offsetMin = tile.offsetMax = Vector2.zero;
+        tile.anchorMin = tile.anchorMax = new Vector2(0.5f,0.62f);
+        float tileSize = Mathf.Clamp(iconSize + 8f,64f,94f);
+        tile.sizeDelta = new Vector2(tileSize,tileSize);
+        tile.anchoredPosition = Vector2.zero;
         TextMeshProUGUI glyphText =
             button.GetComponentInChildren<TextMeshProUGUI>();
         glyphText.fontSize = glyph.Length > 2 ? 15f : 23f;
@@ -549,8 +637,9 @@ public static class StoreUIHierarchyBuilder
             shortcut,"App Label",appName,13f,TextAlignmentOptions.Center);
         label.color = new Color32(205,213,232,255);
         label.rectTransform.anchorMin = Vector2.zero;
-        label.rectTransform.anchorMax = new Vector2(1f,0.25f);
-        label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+        label.rectTransform.anchorMax = new Vector2(1f,0.20f);
+        label.rectTransform.offsetMin = new Vector2(4f,0f);
+        label.rectTransform.offsetMax = new Vector2(-4f,0f);
         return button;
     }
 

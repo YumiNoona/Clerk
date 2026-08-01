@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3d1196cd6bbd534eb51e453fc10c7ab, type: 3}
+  m_Name: Aubergine
+  m_EditorClassIdentifier: Assembly-CSharp::StockInfo
+  productId: 3e28a417404ce7f418d305eb8e260e9d
+  ProductName: Lime Juice
+  Category: {fileID: 11400000, guid: 0c2d09dc374de1f4899b12dbf68ba914, type: 2}
+  BasePrice: 2.99
+  CurrentPrice: 1.99
+  StockPrefab: {fileID: 44562709326442563, guid: b3a17807d9f383d4d88567a9ad7014ab, type: 3}
+  DefaultBoxLayout: {fileID: 11400000, guid: b443c40ba0e8fdb45a43853cb2069d80, type: 2}

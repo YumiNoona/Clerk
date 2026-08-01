@@ -55,6 +55,20 @@ public sealed class CheckoutCounter :
 
     public CheckoutSession ActiveSession =>
         activeSession;
+    public Vector3 ClerkStandingPosition =>
+        clerkStandingPoint != null
+            ? clerkStandingPoint.position
+            : transform.position + transform.forward * 0.8f;
+
+    public Vector3 GetQueueWorldPosition(int index)
+    {
+        index = Mathf.Max(0,index);
+        if (queuePoints != null && index < queuePoints.Count && queuePoints[index] != null)
+        {
+            return queuePoints[index].position;
+        }
+        return transform.position - transform.forward * (fallbackQueueSpacing * (index + 1));
+    }
 
     public event Action<CheckoutCounter> QueueChanged;
     public event Action<CheckoutSession> SessionStarted;

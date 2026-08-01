@@ -30,6 +30,7 @@ public class FurniturePlacementController : MonoBehaviour
     private PlaceableFurniture activeFurniture;
     private bool placementIsValid;
     private bool hasValidSurface;
+    private PlacementGuideRenderer placementGuide;
 
     private Vector3 smoothedSurfacePoint;
     private Vector3 surfacePointVelocity;
@@ -56,6 +57,12 @@ public class FurniturePlacementController : MonoBehaviour
         if (PlayerCamera == null)
         {
             PlayerCamera = Camera.main;
+        }
+
+        placementGuide = GetComponent<PlacementGuideRenderer>();
+        if (placementGuide == null)
+        {
+            placementGuide = gameObject.AddComponent<PlacementGuideRenderer>();
         }
     }
 
@@ -121,6 +128,7 @@ public class FurniturePlacementController : MonoBehaviour
             }
 
             activeFurniture.SetPlacementValid(false);
+            placementGuide?.Hide();
             return;
         }
 
@@ -140,6 +148,7 @@ public class FurniturePlacementController : MonoBehaviour
 
         placementIsValid = ValidatePlacement(activeFurniture);
         activeFurniture.SetPlacementValid(placementIsValid);
+        placementGuide?.ShowFurniture(activeFurniture,placementIsValid);
     }
 
     private bool ValidatePlacement(PlaceableFurniture furniture)
@@ -241,6 +250,7 @@ public class FurniturePlacementController : MonoBehaviour
         }
 
         activeFurniture.ConfirmPlacement();
+        placementGuide?.Hide();
 
         activeFurniture = null;
         placementIsValid = false;
@@ -259,6 +269,7 @@ public class FurniturePlacementController : MonoBehaviour
         }
 
         activeFurniture.CancelPlacement();
+        placementGuide?.Hide();
 
         activeFurniture = null;
         placementIsValid = false;

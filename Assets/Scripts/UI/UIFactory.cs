@@ -2,27 +2,46 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
+
+[DisallowMultipleComponent]
+public sealed class DesktopScrollRegion : MonoBehaviour, IScrollHandler
+{
+    public ScrollRect ScrollRect;
+    [Min(0.01f)] public float Step = 0.14f;
+
+    public void OnScroll(PointerEventData eventData)
+    {
+        if (ScrollRect == null || !ScrollRect.vertical)
+        {
+            return;
+        }
+        ScrollRect.verticalNormalizedPosition = Mathf.Clamp01(
+            ScrollRect.verticalNormalizedPosition + eventData.scrollDelta.y * Step);
+        eventData.Use();
+    }
+}
 
 public static class UIFactory
 {
     public static readonly Color Background =
-        new Color32(10,11,16,255);
+        new Color32(15,23,42,255);
 
     public static readonly Color Surface =
-        new Color32(27,30,39,255);
+        new Color32(30,41,59,255);
 
     public static readonly Color SurfaceRaised =
-        new Color32(36,40,51,255);
+        new Color32(51,65,85,255);
 
     public static readonly Color Accent =
-        new Color32(198,255,61,255);
+        new Color32(96,165,250,255);
 
     public static readonly Color Muted =
-        new Color32(142,151,173,255);
+        new Color32(148,163,184,255);
 
     public static readonly Color Danger =
-        new Color32(255,91,105,255);
+        new Color32(248,113,113,255);
 
     public static RectTransform Panel(
         Transform parent,
@@ -98,8 +117,14 @@ public static class UIFactory
 
         Button button =
             rect.gameObject.AddComponent<Button>();
-
-        rect.GetComponent<Image>().raycastTarget = true;
+        Image square = rect.GetComponent<Image>();
+        UnityEngine.Object.DestroyImmediate(square);
+        RoundedRectGraphic rounded = rect.gameObject.AddComponent<RoundedRectGraphic>();
+        rounded.color = color ?? SurfaceRaised;
+        rounded.Radius = 10f;
+        rounded.CornerSegments = 6;
+        rounded.raycastTarget = true;
+        button.targetGraphic = rounded;
 
         ColorBlock colors = button.colors;
         colors.highlightedColor =

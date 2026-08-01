@@ -342,6 +342,32 @@ public class ShelfSpaceController :
                maximumObjects;
     }
 
+    public bool TryGetNextPlacementPreview(
+        StockInfo product,
+        out Vector3 worldPosition,
+        out Quaternion worldRotation,
+        out int remainingSlots)
+    {
+        worldPosition = transform.position;
+        worldRotation = transform.rotation;
+        remainingSlots = 0;
+        if (product == null || product.Category == null)
+        {
+            return false;
+        }
+        RemoveMissingObjects();
+        int maximum = GetMaximumObjects(product.Category);
+        remainingSlots = Mathf.Max(0,maximum - ObjectsOnShelf.Count);
+        if (!TryGetPlacement(product.Category,ObjectsOnShelf.Count,
+                out Vector3 localPosition,out Quaternion localRotation))
+        {
+            return false;
+        }
+        worldPosition = transform.TransformPoint(localPosition);
+        worldRotation = transform.rotation * localRotation;
+        return CanAcceptProduct(product);
+    }
+
     public bool PlaceStock(
         StockObject objectToPlace)
     {
