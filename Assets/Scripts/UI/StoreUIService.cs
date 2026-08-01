@@ -60,6 +60,12 @@ public sealed class StoreUIService : MonoBehaviour
     private Transform deviceScreenParent;
     private Transform mobileHoldPoint;
     private PlayerInteractionController mobilePresentation;
+    private Renderer mobileScreenRenderer;
+    private RectTransform mobileRuntimeLayout;
+    private RectTransform[] mobileRuntimePages;
+    private RectTransform[] mobileRuntimeContents;
+    private TextMeshProUGUI mobileRuntimeTitle;
+    private bool mobileRuntimeBound;
     private RectTransform[] authoredApplicationPages;
     private RectTransform[] authoredApplicationContents;
 
@@ -107,13 +113,6 @@ public sealed class StoreUIService : MonoBehaviour
     {
         UpdateHud();
 
-        if (GameBootstrap.Instance != null &&
-            GameBootstrap.Instance.Input.WasPressedThisFrame(
-                GameplayAction.Mobile))
-        {
-            ToggleMobile();
-            return;
-        }
 
         if (priceEditorRoot != null &&
             priceEditorRoot.gameObject.activeSelf &&
@@ -236,7 +235,8 @@ public sealed class StoreUIService : MonoBehaviour
         }
 
         ShowApplication(StoreApplication.Overview);
-        deviceRoot.gameObject.SetActive(true);
+        deviceRoot.gameObject.SetActive(
+            kind == StoreDeviceKind.Desktop);
 
         GameBootstrap.Instance.GameplayModes
             .TrySetMode(GameplayMode.DeviceUI);
@@ -271,6 +271,11 @@ public sealed class StoreUIService : MonoBehaviour
         {
             RestoreDeviceToScreenCanvas();
 
+            if (mobileScreenRenderer != null)
+            {
+                mobileScreenRenderer.enabled = true;
+            }
+
             if (mobileModelInstance != null)
             {
                 mobileModelInstance.SetActive(false);
@@ -279,11 +284,22 @@ public sealed class StoreUIService : MonoBehaviour
             return;
         }
 
+        ResolveMobileHoldPoint();
+
+        if (mobileModelInstance == null && mobileHoldPoint != null)
+        {
+            Transform placedPhone = FindNamedChild(
+                mobileHoldPoint,"Mobile");
+            if (placedPhone != null)
+            {
+                mobileModelInstance = placedPhone.gameObject;
+            }
+        }
+
         if (mobileModelInstance == null &&
             mobileModelPrefab != null &&
             Camera.main != null)
         {
-            ResolveMobileHoldPoint();
             mobileModelInstance =
                 Instantiate(
                     mobileModelPrefab,
@@ -294,26 +310,45 @@ public sealed class StoreUIService : MonoBehaviour
             mobileModelInstance.name =
                 "Player Mobile Device";
 
-            mobileModelInstance.transform.localPosition =
-                mobilePresentation != null
-                    ? mobilePresentation.MobileModelLocalPosition
-                    : Vector3.zero;
-
-            mobileModelInstance.transform.localRotation =
-                Quaternion.Euler(
+            if (mobileModelInstance.GetComponent<MobileDeviceView>() == null)
+            {
+                mobileModelInstance.transform.localPosition =
                     mobilePresentation != null
-                        ? mobilePresentation.MobileModelLocalEulerAngles
-                        : new Vector3(0f,180f,0f));
-
-            mobileModelInstance.transform.localScale =
-                Vector3.one * (mobilePresentation != null
-                    ? mobilePresentation.MobileModelScale
-                    : 0.32f);
+                        ? mobilePresentation.MobileModelLocalPosition
+                        : Vector3.zero;
+                mobileModelInstance.transform.localRotation =
+                    Quaternion.Euler(
+                        mobilePresentation != null
+                            ? mobilePresentation.MobileModelLocalEulerAngles
+                            : new Vector3(0f,180f,0f));
+                mobileModelInstance.transform.localScale =
+                    Vector3.one * (mobilePresentation != null
+                        ? mobilePresentation.MobileModelScale
+                        : 0.32f);
+            }
         }
 
         if (mobileModelInstance != null)
         {
             mobileModelInstance.SetActive(true);
+            MobileDeviceView prefabView =
+                mobileModelInstance.GetComponent<MobileDeviceView>();
+            if (prefabView != null && prefabView.ScreenCanvas != null)
+            {
+                mobileScreenCanvas = prefabView.ScreenCanvas;
+                mobileRuntimeLayout = prefabView.MobileLayout;
+                mobileScreenRenderer = prefabView.ScreenRenderer;
+                mobileScreenCanvas.worldCamera = Camera.main;
+            }
+            Transform screen = FindNamedChild(
+                mobileModelInstance.transform,"Screen");
+            mobileScreenRenderer ??= screen != null
+                ? screen.GetComponent<Renderer>()
+                : null;
+            if (mobileScreenRenderer != null)
+            {
+                mobileScreenRenderer.enabled = false;
+            }
             AttachDeviceToMobileScreen();
         }
     }
@@ -327,49 +362,14 @@ public sealed class StoreUIService : MonoBehaviour
 
         if (mobileScreenCanvas == null)
         {
-            ResolveMobileHoldPoint();
-            GameObject screen = new GameObject(
-                "Mobile Screen UI",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(GraphicRaycaster));
-
-            screen.transform.SetParent(
-                mobileHoldPoint != null
-                    ? mobileHoldPoint
-                    : Camera.main.transform,
-                false);
-            RectTransform screenRect =
-                screen.GetComponent<RectTransform>();
-            screenRect.localPosition =
-                mobilePresentation != null
-                    ? mobilePresentation.MobileScreenLocalPosition
-                    : new Vector3(0f,0f,-0.045f);
-            screenRect.localRotation = Quaternion.Euler(
-                mobilePresentation != null
-                    ? mobilePresentation.MobileScreenLocalEulerAngles
-                    : Vector3.zero);
-            screenRect.localScale = Vector3.one *
-                (mobilePresentation != null
-                    ? mobilePresentation.MobileScreenScale
-                    : 0.0003f);
-            screenRect.sizeDelta = mobilePresentation != null
-                ? mobilePresentation.MobileScreenSize
-                : new Vector2(520f,900f);
-
-            mobileScreenCanvas = screen.GetComponent<Canvas>();
-            mobileScreenCanvas.renderMode = RenderMode.WorldSpace;
-            mobileScreenCanvas.worldCamera = Camera.main;
-            mobileScreenCanvas.sortingOrder = 110;
+            Debug.LogError(
+                "The Mobile prefab has no editable MobileDeviceView canvas. " +
+                "Open Assets/Models/UI/Mobile.prefab or run Clerk > Setup > " +
+                "Rebuild Editable Mobile UI Prefab.",this);
+            return;
         }
 
-        if (deviceScreenParent == null)
-        {
-            deviceScreenParent = deviceRoot.parent;
-        }
-
-        deviceRoot.SetParent(mobileScreenCanvas.transform,false);
-        UIFactory.Stretch(deviceRoot);
+        EnsureMobileRuntimeView();
         mobileScreenCanvas.gameObject.SetActive(true);
     }
 
@@ -392,18 +392,89 @@ public sealed class StoreUIService : MonoBehaviour
                 : null;
     }
 
-    private void RestoreDeviceToScreenCanvas()
+    private static Transform FindNamedChild(
+        Transform root,
+        string childName)
     {
-        if (deviceRoot != null && deviceScreenParent != null)
+        if (root == null)
         {
-            deviceRoot.SetParent(deviceScreenParent,false);
-            UIFactory.Stretch(deviceRoot);
+            return null;
         }
 
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform child = root.GetChild(i);
+            if (child.name.Equals(
+                    childName,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                return child;
+            }
+
+            Transform nested = FindNamedChild(child,childName);
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private void RestoreDeviceToScreenCanvas()
+    {
         if (mobileScreenCanvas != null)
         {
             mobileScreenCanvas.gameObject.SetActive(false);
         }
+    }
+
+    private void EnsureMobileRuntimeView()
+    {
+        if (mobileRuntimeLayout == null)
+        {
+            Debug.LogError(
+                "Mobile.prefab is missing its authored Mobile Layout.",this);
+            return;
+        }
+
+        mobileRuntimeLayout.gameObject.SetActive(true);
+
+        if (mobileRuntimeBound)
+        {
+            return;
+        }
+
+        mobileRuntimeTitle = mobileRuntimeLayout.Find(
+            "Phone Frame/App Header/Store Name")
+            ?.GetComponent<TextMeshProUGUI>();
+        BindButton(
+            mobileRuntimeLayout.Find("Phone Frame/App Header/Close")
+                ?.GetComponent<Button>(),
+            CloseDevice);
+
+        StoreApplication[] applications = GetNavigationApplications();
+        mobileRuntimePages = new RectTransform[applications.Length];
+        mobileRuntimeContents = new RectTransform[applications.Length];
+        for (int i = 0; i < applications.Length; i++)
+        {
+            string label = i == 0
+                ? "HOME"
+                : GetApplicationTitle(applications[i]);
+            Transform page = mobileRuntimeLayout.Find(
+                "Phone Frame/Application View/Portrait Application Pages/" +
+                label + " Mobile Page");
+            mobileRuntimePages[i] = page as RectTransform;
+            mobileRuntimeContents[i] = page?.Find(
+                "Live Content Area/Scrollable Content/Viewport/Content")
+                as RectTransform;
+            Button button = mobileRuntimeLayout.Find(
+                "Phone Frame/App Icon Dock/" + label + " App/Icon")
+                ?.GetComponent<Button>();
+            StoreApplication application = applications[i];
+            BindButton(button,() => ShowApplication(application));
+        }
+        mobileRuntimeBound = true;
     }
 
     public void ShowApplication(
@@ -941,6 +1012,7 @@ public sealed class StoreUIService : MonoBehaviour
         BindButton(authoredUI.ApplyPriceButton,ApplyPriceEditor);
         BindButton(authoredUI.CancelPriceButton,ClosePriceEditor);
         BindButton(authoredUI.DeviceCloseButton,CloseDevice);
+        BindButton(authoredUI.MobileCloseButton,CloseDevice);
 
         StoreApplication[] applications = GetNavigationApplications();
         int count = Mathf.Min(
@@ -952,6 +1024,17 @@ public sealed class StoreUIService : MonoBehaviour
             StoreApplication application = applications[i];
             BindButton(
                 authoredUI.ApplicationButtons[i],
+                () => ShowApplication(application));
+        }
+
+        int mobileCount = Mathf.Min(
+            applications.Length,
+            authoredUI.MobileApplicationButtons.Length);
+        for (int i = 0; i < mobileCount; i++)
+        {
+            StoreApplication application = applications[i];
+            BindButton(
+                authoredUI.MobileApplicationButtons[i],
                 () => ShowApplication(application));
         }
 
@@ -1267,36 +1350,34 @@ public sealed class StoreUIService : MonoBehaviour
 
     private void ConfigureAuthoredDevice(StoreDeviceKind kind)
     {
-        UIFactory.Clear(deviceContent);
-        RectTransform frame = authoredUI.DeviceFrame;
-
         if (kind == StoreDeviceKind.Desktop)
         {
-            frame.anchorMin = new Vector2(0.06f,0.06f);
-            frame.anchorMax = new Vector2(0.94f,0.94f);
-            authoredUI.DeviceNavigation.anchorMin = Vector2.zero;
-            authoredUI.DeviceNavigation.anchorMax = new Vector2(0.18f,0.91f);
-            authoredUI.DeviceBody.anchorMin = new Vector2(0.18f,0f);
-            authoredUI.DeviceBody.anchorMax = new Vector2(1f,0.91f);
-            authoredUI.DeviceBrand.text = "CLERK OS";
+            authoredUI.DeviceFrame.gameObject.SetActive(true);
+            deviceContent = authoredUI.DeviceContent;
+            deviceTitle = authoredUI.DeviceTitle;
+            authoredApplicationPages = authoredUI.ApplicationPages;
+            authoredApplicationContents = authoredUI.ApplicationContents;
         }
         else
         {
-            frame.anchorMin = new Vector2(0.28f,0.04f);
-            frame.anchorMax = new Vector2(0.72f,0.96f);
-            authoredUI.DeviceNavigation.anchorMin = Vector2.zero;
-            authoredUI.DeviceNavigation.anchorMax = new Vector2(0.25f,0.91f);
-            authoredUI.DeviceBody.anchorMin = new Vector2(0.25f,0f);
-            authoredUI.DeviceBody.anchorMax = new Vector2(1f,0.91f);
-            authoredUI.DeviceBrand.text = "CLERK";
+            authoredUI.DeviceFrame.gameObject.SetActive(false);
+            authoredUI.MobileLayout.gameObject.SetActive(false);
+            EnsureMobileRuntimeView();
+            if (mobileRuntimeContents == null ||
+                mobileRuntimeContents.Length == 0)
+            {
+                return;
+            }
+            deviceContent = mobileRuntimeContents[0];
+            deviceTitle = mobileRuntimeTitle;
+            authoredApplicationPages = mobileRuntimePages;
+            authoredApplicationContents = mobileRuntimeContents;
         }
 
-        frame.offsetMin = Vector2.zero;
-        frame.offsetMax = Vector2.zero;
-        authoredUI.DeviceNavigation.offsetMin = Vector2.zero;
-        authoredUI.DeviceNavigation.offsetMax = Vector2.zero;
-        authoredUI.DeviceBody.offsetMin = Vector2.zero;
-        authoredUI.DeviceBody.offsetMax = Vector2.zero;
+        if (deviceContent != null)
+        {
+            UIFactory.Clear(deviceContent);
+        }
     }
 
     private void BuildOverview(Transform parent)
@@ -2237,6 +2318,11 @@ public sealed class StoreUIService : MonoBehaviour
         clockText.text =
             "DAY " + day.CurrentDay +
             "  " + day.FormattedTime;
+
+        if (authoredUI != null && authoredUI.MobileClock != null)
+        {
+            authoredUI.MobileClock.text = day.FormattedTime;
+        }
 
         statusText.text =
             day.IsDayRunning

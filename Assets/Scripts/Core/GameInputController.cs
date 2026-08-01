@@ -276,11 +276,6 @@ public sealed class GameInputController : MonoBehaviour
             "<Keyboard>/escape",
             "<Gamepad>/start");
 
-        AddButton(
-            systemMap,
-            GameplayAction.Mobile,
-            "<Keyboard>/p",
-            "<Gamepad>/select");
     }
 
     private void AddMoveAction()

@@ -125,7 +125,6 @@ public static class StreetSceneSetup
         purchaseService.EmployeeCatalog = new[] {
             Load<EmployeeDefinition>("Assets/Data/Employees/Restocker.asset")
         };
-        purchaseService.MobileModel = Load<GameObject>("Assets/Models/UI/Mobile.fbx");
         purchaseService.CheckoutModel = Load<GameObject>("Assets/Prefabs/Furniture/Checkout Counters.prefab");
         purchaseService.CreateStarterCheckout = true;
 

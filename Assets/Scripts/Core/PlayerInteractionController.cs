@@ -21,10 +21,11 @@ public class PlayerInteractionController : MonoBehaviour
     public Transform MobileHoldPoint;
 
     [Header("Mobile Presentation")]
-    public Vector3 MobileModelLocalPosition = Vector3.zero;
+    public Vector3 MobileModelLocalPosition =
+        new Vector3(0f,0.1f,0.035f);
     public Vector3 MobileModelLocalEulerAngles =
-        new Vector3(0f,180f,0f);
-    [Min(0.01f)] public float MobileModelScale = 0.32f;
+        new Vector3(-90f,180f,90f);
+    [Min(0.01f)] public float MobileModelScale = 1.5f;
     public Vector3 MobileScreenLocalPosition =
         new Vector3(0f,0f,-0.045f);
     public Vector3 MobileScreenLocalEulerAngles = Vector3.zero;

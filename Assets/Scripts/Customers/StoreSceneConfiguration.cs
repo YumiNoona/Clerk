@@ -51,6 +51,7 @@ public sealed class StoreSceneConfiguration : MonoBehaviour
     private CustomerEntrancePoint runtimeEntrance;
     private CustomerExitPoint runtimeExit;
     private GameObject runtimePoints;
+    private bool isSynchronized;
 
     [SerializeField,HideInInspector]
     private bool legacyHierarchyMigrated;
@@ -85,6 +86,11 @@ public sealed class StoreSceneConfiguration : MonoBehaviour
 
     public void SynchronizeRuntimePoints()
     {
+        if (isSynchronized)
+        {
+            return;
+        }
+
         ClearRuntimePoints();
         runtimeSpawns.Clear();
         runtimeEntrance = null;
@@ -147,6 +153,7 @@ public sealed class StoreSceneConfiguration : MonoBehaviour
         }
 
         RebuildPedestrianWorldTrack();
+        isSynchronized = true;
     }
 
     private Transform CreateRuntimePoint(string pointName, ScenePose pose)
@@ -190,6 +197,7 @@ public sealed class StoreSceneConfiguration : MonoBehaviour
         }
 
         runtimePoints = null;
+        isSynchronized = false;
     }
 
     private void OnDestroy()

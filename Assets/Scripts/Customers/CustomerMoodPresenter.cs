@@ -26,12 +26,15 @@ public sealed class CustomerMoodPresenter : MonoBehaviour
     private float initialPatience;
     private float temperamentOffset;
     private CustomerMood currentMood;
+    private Camera targetCamera;
+    private float nextRefreshTime;
 
     public CustomerMood CurrentMood => currentMood;
 
     public void Initialize(CustomerContext customer)
     {
         context = customer;
+        targetCamera = Camera.main;
         initialPatience = Mathf.Max(
             1f,
             customer != null
@@ -74,12 +77,21 @@ public sealed class CustomerMoodPresenter : MonoBehaviour
             return;
         }
 
+        if (Time.time < nextRefreshTime)
+        {
+            return;
+        }
+
+        nextRefreshTime = Time.time + 0.15f;
         RefreshMood(false);
     }
 
     private void LateUpdate()
     {
-        Camera targetCamera = Camera.main;
+        if (targetCamera == null)
+        {
+            targetCamera = Camera.main;
+        }
 
         if (iconTransform != null && targetCamera != null)
         {
@@ -157,9 +169,9 @@ public sealed class CustomerMoodPresenter : MonoBehaviour
         }
 
         currentMood = nextMood;
-        Texture2D texture = catalog.GetTexture(nextMood);
+        Sprite sprite = catalog.GetSprite(nextMood);
 
-        if (texture == null)
+        if (sprite == null)
         {
             iconRenderer.enabled = false;
             return;
@@ -167,16 +179,7 @@ public sealed class CustomerMoodPresenter : MonoBehaviour
 
         iconRenderer.enabled = true;
 
-        if (iconRenderer.sprite != null)
-        {
-            Destroy(iconRenderer.sprite);
-        }
-
-        iconRenderer.sprite = Sprite.Create(
-            texture,
-            new Rect(0f,0f,texture.width,texture.height),
-            new Vector2(0.5f,0.5f),
-            Mathf.Max(texture.width,texture.height));
+        iconRenderer.sprite = sprite;
 
         float spriteSize = Mathf.Max(
             iconRenderer.sprite.bounds.size.x,
@@ -232,12 +235,4 @@ public sealed class CustomerMoodPresenter : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
-    {
-        if (iconRenderer != null &&
-            iconRenderer.sprite != null)
-        {
-            Destroy(iconRenderer.sprite);
-        }
-    }
 }

@@ -1,10 +1,7 @@
 using TMPro;
-using System;
-using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
 
-[ExecuteAlways]
 [DisallowMultipleComponent]
 public sealed class StoreUIAuthoring : MonoBehaviour
 {
@@ -42,7 +39,7 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     public Button ApplyPriceButton;
     public Button CancelPriceButton;
 
-    [Header("Device")]
+    [Header("Desktop Device Layout")]
     public RectTransform DeviceFrame;
     public RectTransform DeviceNavigation;
     public RectTransform DeviceBody;
@@ -54,6 +51,19 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     public RectTransform[] ApplicationPages;
     public RectTransform[] ApplicationContents;
 
+    [Header("Mobile Device Layout")]
+    public RectTransform MobileLayout;
+    public RectTransform MobileFrame;
+    public RectTransform MobileNavigation;
+    public RectTransform MobileBody;
+    public RectTransform MobileContent;
+    public TextMeshProUGUI MobileClock;
+    public TextMeshProUGUI MobileTitle;
+    public Button MobileCloseButton;
+    public Button[] MobileApplicationButtons;
+    public RectTransform[] MobileApplicationPages;
+    public RectTransform[] MobileApplicationContents;
+
     public bool IsComplete =>
         Canvas != null && HudRoot != null && PauseRoot != null &&
         MainMenuRoot != null && NotificationRoot != null &&
@@ -64,30 +74,4 @@ public sealed class StoreUIAuthoring : MonoBehaviour
         ApplicationPages.Length == 7 && ApplicationContents != null &&
         ApplicationContents.Length == 7;
 
-#if UNITY_EDITOR
-    private void OnEnable()
-    {
-        RequestEditorBuild();
-    }
-
-    private void OnValidate()
-    {
-        RequestEditorBuild();
-    }
-
-    private void RequestEditorBuild()
-    {
-        if (Application.isPlaying || IsComplete)
-        {
-            return;
-        }
-
-        Type builderType = Type.GetType(
-            "StoreUIHierarchyBuilder, Clerk.Editor");
-        MethodInfo buildMethod = builderType?.GetMethod(
-            "Build",
-            BindingFlags.Public | BindingFlags.Static);
-        buildMethod?.Invoke(null,new object[] { this });
-    }
-#endif
 }

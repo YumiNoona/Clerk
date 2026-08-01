@@ -4,6 +4,17 @@ public class StockDeliveryService : MonoBehaviour
 {
     [Header("Delivery")]
     public Transform DeliverySpawnPoint;
+    private bool hasConfiguredPose;
+    private Vector3 configuredPosition;
+    private Quaternion configuredRotation;
+
+    public void ConfigureSpawnPose(Vector3 position,Quaternion rotation)
+    {
+        configuredPosition = position;
+        configuredRotation = rotation;
+        hasConfiguredPose = true;
+        DeliverySpawnPoint = null;
+    }
 
     public bool Deliver(StockPurchaseData purchaseData)
     {
@@ -21,7 +32,12 @@ public class StockDeliveryService : MonoBehaviour
         Vector3 spawnPosition = transform.position;
         Quaternion spawnRotation = transform.rotation;
 
-        if (DeliverySpawnPoint != null)
+        if (hasConfiguredPose)
+        {
+            spawnPosition = configuredPosition;
+            spawnRotation = configuredRotation;
+        }
+        else if (DeliverySpawnPoint != null)
         {
             spawnPosition = DeliverySpawnPoint.position;
             spawnRotation = DeliverySpawnPoint.rotation;

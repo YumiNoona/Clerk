@@ -346,7 +346,9 @@ public sealed class CustomerSpawner : MonoBehaviour
             return null;
         }
 
-        List<T> enabledPoints = new List<T>();
+        T selected = null;
+        int enabledCount = 0;
+        float totalWeight = 0f;
 
         for (int i = 0; i < points.Length; i++)
         {
@@ -372,46 +374,27 @@ public sealed class CustomerSpawner : MonoBehaviour
 
             if (point != null && point.isActiveAndEnabled)
             {
-                enabledPoints.Add(point);
-            }
-        }
-
-        if (enabledPoints.Count == 0)
-        {
-            return null;
-        }
-
-        if (typeof(T) == typeof(CustomerSpawnPoint))
-        {
-            float totalWeight = 0f;
-
-            for (int i = 0; i < enabledPoints.Count; i++)
-            {
-                totalWeight +=
-                    ((CustomerSpawnPoint)(object)enabledPoints[i])
-                    .SpawnWeight;
-            }
-
-            if (totalWeight > 0f)
-            {
-                float selection = Random.value * totalWeight;
-
-                for (int i = 0; i < enabledPoints.Count; i++)
+                if (point is CustomerSpawnPoint weightedSpawn)
                 {
-                    selection -=
-                        ((CustomerSpawnPoint)(object)enabledPoints[i])
-                        .SpawnWeight;
-
-                    if (selection <= 0f)
+                    float weight = Mathf.Max(0f,weightedSpawn.SpawnWeight);
+                    totalWeight += weight;
+                    if (weight > 0f && Random.value * totalWeight <= weight)
                     {
-                        return enabledPoints[i];
+                        selected = point;
+                    }
+                }
+                else
+                {
+                    enabledCount++;
+                    if (Random.Range(0,enabledCount) == 0)
+                    {
+                        selected = point;
                     }
                 }
             }
         }
 
-        return enabledPoints[
-            Random.Range(0,enabledPoints.Count)];
+        return selected;
     }
 
     private void OnValidate()

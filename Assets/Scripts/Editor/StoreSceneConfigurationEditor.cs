@@ -10,6 +10,67 @@ public static class StorePointHierarchyMigration
         EditorApplication.delayCall += MigrateOpenScene;
     }
 
+    [MenuItem("Clerk/Setup/Create Modular Store Configuration")]
+    public static void CreateModularStoreConfiguration()
+    {
+        GameObject root = GameObject.Find("Store Configuration");
+        if (root == null)
+        {
+            root = new GameObject("Store Configuration");
+            Undo.RegisterCreatedObjectUndo(
+                root,"Create Modular Store Configuration");
+        }
+
+        StoreSceneConfiguration scene = GetOrAdd<StoreSceneConfiguration>(root);
+        GetOrAdd<StoreDeliveryConfiguration>(root);
+        PurchaseService purchase = GetOrAdd<PurchaseService>(root);
+        StockDeliveryService stock = GetOrAdd<StockDeliveryService>(root);
+        FurnitureDeliveryService furniture =
+            GetOrAdd<FurnitureDeliveryService>(root);
+
+        purchase.StockDeliveryService = stock;
+        purchase.FurnitureDeliveryService = furniture;
+        purchase.PurchaseCatalog ??= LoadFirst<PurchaseCatalog>();
+        purchase.CustomerDatabase ??= LoadFirst<CustomerDatabase>();
+        EditorUtility.SetDirty(purchase);
+
+        GameObject uiRoot = GameObject.Find("UI");
+        if (uiRoot == null)
+        {
+            uiRoot = new GameObject("UI");
+            Undo.RegisterCreatedObjectUndo(uiRoot,"Create Store UI Root");
+        }
+        StoreUIAuthoring ui = GetOrAdd<StoreUIAuthoring>(uiRoot);
+        if (!ui.IsComplete)
+        {
+            StoreUIHierarchyBuilder.Build(ui);
+        }
+
+        Selection.activeGameObject = root;
+        EditorSceneManager.MarkSceneDirty(root.scene);
+        Debug.Log(
+            "Modular store configuration created on one GameObject. " +
+            "Set its point handles, assign the checkout, and bake the NavMesh.",
+            scene);
+    }
+
+    private static T GetOrAdd<T>(GameObject target) where T : Component
+    {
+        T component = target.GetComponent<T>();
+        return component != null
+            ? component
+            : Undo.AddComponent<T>(target);
+    }
+
+    private static T LoadFirst<T>() where T : Object
+    {
+        string[] guids = AssetDatabase.FindAssets("t:" + typeof(T).Name);
+        return guids.Length > 0
+            ? AssetDatabase.LoadAssetAtPath<T>(
+                AssetDatabase.GUIDToAssetPath(guids[0]))
+            : null;
+    }
+
     private static void MigrateOpenScene()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode)

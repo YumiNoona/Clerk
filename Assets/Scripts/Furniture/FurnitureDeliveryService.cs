@@ -4,6 +4,17 @@ public class FurnitureDeliveryService : MonoBehaviour
 {
     [Header("Delivery")]
     public Transform FurnitureSpawnPoint;
+    private bool hasConfiguredPose;
+    private Vector3 configuredPosition;
+    private Quaternion configuredRotation;
+
+    public void ConfigureSpawnPose(Vector3 position,Quaternion rotation)
+    {
+        configuredPosition = position;
+        configuredRotation = rotation;
+        hasConfiguredPose = true;
+        FurnitureSpawnPoint = null;
+    }
 
     public bool Deliver(FurniturePurchaseData purchaseData)
     {
@@ -13,8 +24,16 @@ public class FurnitureDeliveryService : MonoBehaviour
             return false;
         }
 
-        Vector3 spawnPosition = FurnitureSpawnPoint != null ? FurnitureSpawnPoint.position : transform.position;
-        Quaternion spawnRotation = FurnitureSpawnPoint != null ? FurnitureSpawnPoint.rotation : Quaternion.identity;
+        Vector3 spawnPosition = hasConfiguredPose
+            ? configuredPosition
+            : FurnitureSpawnPoint != null
+                ? FurnitureSpawnPoint.position
+                : transform.position;
+        Quaternion spawnRotation = hasConfiguredPose
+            ? configuredRotation
+            : FurnitureSpawnPoint != null
+                ? FurnitureSpawnPoint.rotation
+                : transform.rotation;
 
         PlaceableFurniture deliveredFurniture = Instantiate(purchaseData.FurniturePrefab,spawnPosition,spawnRotation);
 

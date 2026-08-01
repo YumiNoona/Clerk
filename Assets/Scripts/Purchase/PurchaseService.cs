@@ -21,9 +21,6 @@ public class PurchaseService : MonoBehaviour
     [Header("Employees")]
     public EmployeeDefinition[] EmployeeCatalog;
 
-    [Header("Player Devices")]
-    public GameObject MobileModel;
-
     [Header("Starter Checkout")]
     public GameObject CheckoutModel;
     public bool CreateStarterCheckout = true;
@@ -69,12 +66,6 @@ public class PurchaseService : MonoBehaviour
                     .AddObjective(
                         StartingObjectives[i]);
             }
-        }
-
-        if (GameBootstrap.Instance != null)
-        {
-            GameBootstrap.Instance.UI
-                .ConfigureMobileModel(MobileModel);
         }
 
         EnsureStarterCheckout();
@@ -175,12 +166,7 @@ public class PurchaseService : MonoBehaviour
 
         if (spawner == null)
         {
-            GameObject spawnerObject =
-                new GameObject("Customer Spawner");
-
-            spawner =
-                spawnerObject.AddComponent<
-                    CustomerSpawner>();
+            spawner = gameObject.AddComponent<CustomerSpawner>();
         }
 
         spawner.Configure(
@@ -213,10 +199,7 @@ public class PurchaseService : MonoBehaviour
             return;
         }
 
-        GameObject pedestrians =
-            new GameObject("Street Pedestrians");
-
-        pedestrians.AddComponent<StreetPedestrianSpawner>()
+        gameObject.AddComponent<StreetPedestrianSpawner>()
             .Configure(CustomerDatabase,configuration.PedestrianTrack);
     }
 
