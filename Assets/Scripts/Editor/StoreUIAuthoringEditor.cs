@@ -19,6 +19,12 @@ public sealed class StoreUIAuthoringEditor : Editor
             "binds actions and populates live data rows.",
             MessageType.Info);
 
+        EditorGUILayout.HelpBox(
+            "Desktop icons: import each PNG as Texture Type = Sprite (2D and UI), " +
+            "then assign it under Desktop Application Icons below. The desktop " +
+            "preview updates immediately in Edit Mode. Transparent square PNGs work best.",
+            MessageType.None);
+
         if (GUILayout.Button("Rebuild Authored Store UI",GUILayout.Height(30f)) &&
             EditorUtility.DisplayDialog(
                 "Rebuild Store UI",
@@ -29,7 +35,10 @@ public sealed class StoreUIAuthoringEditor : Editor
             StoreUIHierarchyBuilder.Build(authoring);
         }
 
-        DrawDefaultInspector();
+        if (DrawDefaultInspector())
+        {
+            StoreUIHierarchyBuilder.RefreshDesktopIcons(authoring);
+        }
     }
 }
 
@@ -56,6 +65,11 @@ public static class StoreUIHierarchyBuilder
         if (authoring != null && NeedsRebuild(authoring))
         {
             Build(authoring);
+        }
+
+        if (authoring != null)
+        {
+            RefreshDesktopIcons(authoring);
         }
 
         if (authoring != null && authoring.gameObject.scene.isDirty)
@@ -88,6 +102,81 @@ public static class StoreUIHierarchyBuilder
             authoring.DeviceRoot == null ||
             authoring.DeviceRoot.name != "Device UI" ||
             authoring.MobileLayout != null;
+    }
+
+    public static void RefreshDesktopIcons(StoreUIAuthoring ui)
+    {
+        if (ui == null || EditorApplication.isPlayingOrWillChangePlaymode ||
+            ui.ApplicationButtons == null || ui.ApplicationButtons.Length != 8)
+        {
+            return;
+        }
+
+        Sprite[] icons =
+        {
+            ui.OverviewIcon, ui.StoreIcon, ui.RegisterIcon, ui.BankIcon,
+            ui.HiringIcon, ui.LinkedInIcon, ui.HistoryIcon, ui.SettingsIcon
+        };
+
+        Undo.RegisterFullObjectHierarchyUndo(ui.gameObject,"Update Desktop Icons");
+        for (int i = 0; i < ui.ApplicationButtons.Length; i++)
+        {
+            Button button = ui.ApplicationButtons[i];
+            if (button == null)
+            {
+                continue;
+            }
+
+            Transform existing = button.transform.Find("Icon Image");
+            TextMeshProUGUI glyph = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            Sprite icon = icons[i];
+
+            if (icon == null)
+            {
+                if (existing != null)
+                {
+                    Object.DestroyImmediate(existing.gameObject);
+                }
+                if (glyph != null)
+                {
+                    glyph.gameObject.SetActive(true);
+                }
+                continue;
+            }
+
+            Image image;
+            if (existing == null)
+            {
+                RectTransform iconRect = UIFactory.Panel(
+                    button.transform,"Icon Image",Color.white);
+                iconRect.anchorMin = new Vector2(0.02f,0.02f);
+                iconRect.anchorMax = new Vector2(0.98f,0.98f);
+                iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
+                image = iconRect.GetComponent<Image>();
+                image.preserveAspect = true;
+                image.raycastTarget = false;
+            }
+            else
+            {
+                image = existing.GetComponent<Image>();
+            }
+
+            RectTransform imageRect = image.rectTransform;
+            imageRect.anchorMin = new Vector2(0.02f,0.02f);
+            imageRect.anchorMax = new Vector2(0.98f,0.98f);
+            imageRect.offsetMin = imageRect.offsetMax = Vector2.zero;
+
+            image.sprite = icon;
+            image.color = Color.white;
+            if (glyph != null)
+            {
+                glyph.gameObject.SetActive(false);
+            }
+        }
+
+        EditorUtility.SetDirty(ui);
+        EditorSceneManager.MarkSceneDirty(ui.gameObject.scene);
+        SceneView.RepaintAll();
     }
 
     public static void Build(StoreUIAuthoring ui)
@@ -262,7 +351,9 @@ public static class StoreUIHierarchyBuilder
 
     private static void BuildDesktopDevice(StoreUIAuthoring ui)
     {
-        ui.DeviceFrame = UIFactory.Panel(ui.DeviceRoot,"Device Frame",UIFactory.Background);
+        Color desktopBackground = new Color32(13,20,35,255);
+        Color taskbarColor = new Color32(18,23,34,250);
+        ui.DeviceFrame = UIFactory.Panel(ui.DeviceRoot,"Device Frame",desktopBackground);
         ui.DeviceFrame.name = "Desktop Layout";
         ui.DeviceFrame.anchorMin = new Vector2(0.06f,0.06f);
         ui.DeviceFrame.anchorMax = new Vector2(0.94f,0.94f);
@@ -271,37 +362,92 @@ public static class StoreUIHierarchyBuilder
         outline.effectColor = new Color(0.25f,0.28f,0.35f,1f);
         outline.effectDistance = new Vector2(3f,-3f);
 
-        RectTransform header = UIFactory.Panel(ui.DeviceFrame,"Header",UIFactory.Surface);
-        header.anchorMin = new Vector2(0f,0.91f);
+        RectTransform header = UIFactory.Panel(ui.DeviceFrame,"Window Title Bar",UIFactory.Surface);
+        header.anchorMin = new Vector2(0.20f,0.92f);
         header.anchorMax = Vector2.one;
         header.offsetMin = header.offsetMax = Vector2.zero;
         UIFactory.Horizontal(header,10f,14f);
-        ui.DeviceBrand = UIFactory.Text(header,"Brand","CLERK OS",25f,TextAlignmentOptions.Left);
+        ui.DeviceBrand = UIFactory.Text(header,"Brand","CLERK DESKTOP",22f,TextAlignmentOptions.Left);
         ui.DeviceBrand.color = UIFactory.Accent;
         UIFactory.Size(ui.DeviceBrand,180f,0f);
         ui.DeviceTitle = UIFactory.Text(header,"Application Title","OVERVIEW",22f,TextAlignmentOptions.Center);
         ui.DeviceCloseButton = UIFactory.Button(header,"Close","X",null,UIFactory.Danger);
         UIFactory.Size(ui.DeviceCloseButton,54f,48f);
 
-        ui.DeviceNavigation = UIFactory.Panel(ui.DeviceFrame,"Applications",UIFactory.Surface);
-        ui.DeviceNavigation.anchorMin = Vector2.zero;
-        ui.DeviceNavigation.anchorMax = new Vector2(0.18f,0.91f);
-        ui.DeviceNavigation.offsetMin = ui.DeviceNavigation.offsetMax = Vector2.zero;
-        UIFactory.Vertical(ui.DeviceNavigation,7f,12f);
+        RectTransform desktopHeader = UIFactory.Panel(
+            ui.DeviceFrame,"Desktop Header",new Color32(18,27,45,255));
+        desktopHeader.anchorMin = new Vector2(0f,0.92f);
+        desktopHeader.anchorMax = new Vector2(0.20f,1f);
+        desktopHeader.offsetMin = desktopHeader.offsetMax = Vector2.zero;
+        TextMeshProUGUI desktopName = UIFactory.Text(
+            desktopHeader,"Store Name","QUICK STOP\nMANAGEMENT",19f,
+            TextAlignmentOptions.Center);
+        desktopName.color = UIFactory.Accent;
 
-        string[] apps = { "OVERVIEW", "SUPPLY", "REGISTER", "BANK", "HISTORY", "TASKS", "SETTINGS" };
+        RectTransform taskbar = UIFactory.Panel(
+            ui.DeviceFrame,"Taskbar",taskbarColor);
+        taskbar.anchorMin = Vector2.zero;
+        taskbar.anchorMax = new Vector2(1f,0.075f);
+        taskbar.offsetMin = taskbar.offsetMax = Vector2.zero;
+        TextMeshProUGUI startLabel = UIFactory.Text(
+            taskbar,"Start Label","CLERK  |  STORE MANAGEMENT",17f,
+            TextAlignmentOptions.Left);
+        startLabel.rectTransform.anchorMin = new Vector2(0.015f,0f);
+        startLabel.rectTransform.anchorMax = new Vector2(0.42f,1f);
+        startLabel.rectTransform.offsetMin = startLabel.rectTransform.offsetMax = Vector2.zero;
+        startLabel.color = UIFactory.Accent;
+        TextMeshProUGUI taskbarStatus = UIFactory.Text(
+            taskbar,"System Status","ONLINE   •   DESKTOP",15f,
+            TextAlignmentOptions.Right);
+        taskbarStatus.rectTransform.anchorMin = new Vector2(0.65f,0f);
+        taskbarStatus.rectTransform.anchorMax = new Vector2(0.985f,1f);
+        taskbarStatus.rectTransform.offsetMin = taskbarStatus.rectTransform.offsetMax = Vector2.zero;
+        taskbarStatus.color = UIFactory.Muted;
+
+        ui.DeviceNavigation = UIFactory.Panel(
+            ui.DeviceFrame,"Desktop App Launcher",new Color32(16,25,42,255));
+        ui.DeviceNavigation.anchorMin = new Vector2(0f,0.075f);
+        ui.DeviceNavigation.anchorMax = new Vector2(0.20f,0.92f);
+        ui.DeviceNavigation.offsetMin = ui.DeviceNavigation.offsetMax = Vector2.zero;
+        GridLayoutGroup launcher =
+            ui.DeviceNavigation.gameObject.AddComponent<GridLayoutGroup>();
+        launcher.padding = new RectOffset(20,20,24,18);
+        launcher.spacing = new Vector2(14f,18f);
+        launcher.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        launcher.constraintCount = 2;
+        launcher.cellSize = new Vector2(125f,100f);
+        launcher.childAlignment = TextAnchor.UpperCenter;
+
+        string[] apps =
+        {
+            "OVERVIEW", "STORE", "REGISTER", "BANK",
+            "HIRING", "LINKEDIN", "HISTORY", "SETTINGS"
+        };
+        string[] glyphs = { "HQ", "SHOP", "POS", "$", "HR", "IN", "LOG", "SET" };
+        Color[] colors =
+        {
+            new Color32(76,201,240,255), new Color32(255,159,67,255),
+            new Color32(167,126,245,255), new Color32(190,242,58,255),
+            new Color32(255,103,132,255), new Color32(69,180,230,255),
+            new Color32(137,145,168,255), new Color32(92,99,120,255)
+        };
+        Sprite[] icons =
+        {
+            ui.OverviewIcon, ui.StoreIcon, ui.RegisterIcon, ui.BankIcon,
+            ui.HiringIcon, ui.LinkedInIcon, ui.HistoryIcon, ui.SettingsIcon
+        };
         List<Button> buttons = new List<Button>();
         for (int i = 0; i < apps.Length; i++)
         {
-            Button button = UIFactory.Button(ui.DeviceNavigation,apps[i],apps[i],null);
-            UIFactory.Size(button,0f,48f);
+            Button button = BuildDesktopAppShortcut(
+                ui.DeviceNavigation,apps[i],glyphs[i],colors[i],icons[i]);
             buttons.Add(button);
         }
         ui.ApplicationButtons = buttons.ToArray();
 
         ui.DeviceBody = UIFactory.Panel(ui.DeviceFrame,"Workspace",UIFactory.Background);
-        ui.DeviceBody.anchorMin = new Vector2(0.18f,0f);
-        ui.DeviceBody.anchorMax = new Vector2(1f,0.91f);
+        ui.DeviceBody.anchorMin = new Vector2(0.20f,0.075f);
+        ui.DeviceBody.anchorMax = new Vector2(1f,0.92f);
         ui.DeviceBody.offsetMin = ui.DeviceBody.offsetMax = Vector2.zero;
 
         RectTransform pages = UIFactory.Panel(
@@ -313,8 +459,13 @@ public static class StoreUIHierarchyBuilder
         for (int i = 0; i < apps.Length; i++)
         {
             RectTransform page = UIFactory.Panel(
-                pages,apps[i] + " Page",Color.clear);
-            UIFactory.Stretch(page);
+                pages,apps[i] + " Software Window",desktopBackground);
+            page.anchorMin = new Vector2(0.025f,0.03f);
+            page.anchorMax = new Vector2(0.975f,0.97f);
+            page.offsetMin = page.offsetMax = Vector2.zero;
+            Outline windowOutline = page.gameObject.AddComponent<Outline>();
+            windowOutline.effectColor = new Color32(55,65,84,255);
+            windowOutline.effectDistance = new Vector2(2f,-2f);
 
             RectTransform pageHeader = UIFactory.Panel(
                 page,"Page Header",UIFactory.Surface);
@@ -347,6 +498,44 @@ public static class StoreUIHierarchyBuilder
         }
 
         ui.DeviceContent = ui.ApplicationContents[0];
+    }
+
+    private static Button BuildDesktopAppShortcut(
+        Transform parent,string appName,string glyph,Color tileColor,Sprite icon)
+    {
+        RectTransform shortcut = UIFactory.Panel(
+            parent,appName + " Shortcut",Color.clear);
+        Button button = UIFactory.Button(
+            shortcut,"Open " + appName,glyph,null,tileColor);
+        RectTransform tile = button.GetComponent<RectTransform>();
+        tile.anchorMin = new Vector2(0.22f,0.30f);
+        tile.anchorMax = new Vector2(0.78f,1f);
+        tile.offsetMin = tile.offsetMax = Vector2.zero;
+        TextMeshProUGUI glyphText =
+            button.GetComponentInChildren<TextMeshProUGUI>();
+        glyphText.fontSize = glyph.Length > 2 ? 15f : 23f;
+        glyphText.fontStyle = FontStyles.Bold;
+        glyphText.color = UIFactory.Background;
+        if (icon != null)
+        {
+            glyphText.gameObject.SetActive(false);
+            RectTransform iconRect = UIFactory.Panel(
+                button.transform,"Icon Image",Color.white);
+            iconRect.anchorMin = new Vector2(0.02f,0.02f);
+            iconRect.anchorMax = new Vector2(0.98f,0.98f);
+            iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
+            Image image = iconRect.GetComponent<Image>();
+            image.sprite = icon;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+        }
+        TextMeshProUGUI label = UIFactory.Text(
+            shortcut,"App Label",appName,13f,TextAlignmentOptions.Center);
+        label.color = new Color32(205,213,232,255);
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = new Vector2(1f,0.25f);
+        label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+        return button;
     }
 
     private static void BuildMobileDevice(StoreUIAuthoring ui)

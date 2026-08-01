@@ -47,6 +47,7 @@ public sealed class StoreUIService : MonoBehaviour
     private Coroutine notificationRoutine;
     private StoreDeviceKind activeDevice;
     private StoreApplication activeApplication;
+    private int marketplaceTab;
     private bool isRebinding;
     private bool showingMainMenu;
     private Button mainMenuStartButton;
@@ -514,7 +515,7 @@ public sealed class StoreUIService : MonoBehaviour
                 BuildOverview(deviceContent);
                 break;
             case StoreApplication.Supply:
-                BuildStockCatalog(deviceContent);
+                BuildStoreMarketplace(deviceContent);
                 break;
             case StoreApplication.Furniture:
                 BuildFurnitureCatalog(deviceContent);
@@ -538,7 +539,7 @@ public sealed class StoreUIService : MonoBehaviour
                 BuildMessages(deviceContent);
                 break;
             case StoreApplication.Tasks:
-                BuildTasks(deviceContent);
+                BuildCareerBoard(deviceContent);
                 break;
             case StoreApplication.Settings:
                 BuildSettings(deviceContent);
@@ -708,16 +709,6 @@ public sealed class StoreUIService : MonoBehaviour
                 GameBootstrap.Instance
                     .GameplayModes.Resume();
                 OpenDevice(StoreDeviceKind.Desktop);
-            });
-
-        AddMenuButton(
-            menu,
-            "PHONE",
-            () =>
-            {
-                GameBootstrap.Instance
-                    .GameplayModes.Resume();
-                OpenDevice(StoreDeviceKind.Mobile);
             });
 
         AddMenuButton(
@@ -904,49 +895,6 @@ public sealed class StoreUIService : MonoBehaviour
         notificationRoot.gameObject.SetActive(false);
     }
 
-    private void ToggleMobile()
-    {
-        if (showingMainMenu)
-        {
-            return;
-        }
-
-        if (deviceRoot != null &&
-            deviceRoot.gameObject.activeSelf &&
-            activeDevice == StoreDeviceKind.Mobile)
-        {
-            CloseDevice();
-            return;
-        }
-
-        GameplayMode mode =
-            GameBootstrap.Instance.GameplayModes.CurrentMode;
-
-        if (mode != GameplayMode.Gameplay &&
-            mode != GameplayMode.Paused)
-        {
-            return;
-        }
-
-        PlayerInteractionController player =
-            FindAnyObjectByType<PlayerInteractionController>();
-
-        if (player != null && player.IsHoldingAnything)
-        {
-            GameBootstrap.Instance.Notifications.Show(
-                "Put down the held item before using the phone.",
-                NotificationKind.Warning);
-            return;
-        }
-
-        if (mode == GameplayMode.Paused)
-        {
-            GameBootstrap.Instance.GameplayModes.Resume();
-        }
-
-        OpenDevice(StoreDeviceKind.Mobile);
-    }
-
     private bool TryBindAuthoredUI()
     {
         authoredUI = FindAnyObjectByType<StoreUIAuthoring>(
@@ -1001,18 +949,12 @@ public sealed class StoreUIService : MonoBehaviour
             GameBootstrap.Instance.GameplayModes.Resume();
             OpenDevice(StoreDeviceKind.Desktop);
         });
-        BindButton(authoredUI.PhoneButton,() =>
-        {
-            GameBootstrap.Instance.GameplayModes.Resume();
-            OpenDevice(StoreDeviceKind.Mobile);
-        });
         BindButton(authoredUI.SaveButton,() => SaveSlot(0));
         BindButton(authoredUI.LoadButton,() => LoadSlot(0));
         BindButton(authoredUI.PauseQuitButton,QuitGame);
         BindButton(authoredUI.ApplyPriceButton,ApplyPriceEditor);
         BindButton(authoredUI.CancelPriceButton,ClosePriceEditor);
         BindButton(authoredUI.DeviceCloseButton,CloseDevice);
-        BindButton(authoredUI.MobileCloseButton,CloseDevice);
 
         StoreApplication[] applications = GetNavigationApplications();
         int count = Mathf.Min(
@@ -1024,17 +966,6 @@ public sealed class StoreUIService : MonoBehaviour
             StoreApplication application = applications[i];
             BindButton(
                 authoredUI.ApplicationButtons[i],
-                () => ShowApplication(application));
-        }
-
-        int mobileCount = Mathf.Min(
-            applications.Length,
-            authoredUI.MobileApplicationButtons.Length);
-        for (int i = 0; i < mobileCount; i++)
-        {
-            StoreApplication application = applications[i];
-            BindButton(
-                authoredUI.MobileApplicationButtons[i],
                 () => ShowApplication(application));
         }
 
@@ -1069,8 +1000,9 @@ public sealed class StoreUIService : MonoBehaviour
             StoreApplication.Supply,
             StoreApplication.Register,
             StoreApplication.Bank,
-            StoreApplication.History,
+            StoreApplication.Staff,
             StoreApplication.Tasks,
+            StoreApplication.History,
             StoreApplication.Settings
         };
     }
@@ -1441,7 +1373,7 @@ public sealed class StoreUIService : MonoBehaviour
 
     private void BuildStockCatalog(Transform parent)
     {
-        AddSectionTitle(parent,"SUPPLY CO.");
+        AddSectionTitle(parent,"PRODUCT STOCK");
 
         PurchaseCatalog catalog =
             PurchaseService.Instance != null
@@ -1487,11 +1419,32 @@ public sealed class StoreUIService : MonoBehaviour
                 });
         }
 
-        AddActionButton(
-            parent,
-            "FURNITURE CATALOG",
-            () => ShowApplication(
-                StoreApplication.Furniture));
+    }
+
+    private void BuildStoreMarketplace(Transform parent)
+    {
+        AddSectionTitle(parent,"CLERK MARKETPLACE");
+        AddMetric(parent,"DEPARTMENT",
+            marketplaceTab == 0 ? "PRODUCT STOCK" : "STORE FURNITURE");
+        AddActionButton(parent,"PRODUCT STOCK",() =>
+        {
+            marketplaceTab = 0;
+            ShowApplication(StoreApplication.Supply);
+        });
+        AddActionButton(parent,"FURNITURE",() =>
+        {
+            marketplaceTab = 1;
+            ShowApplication(StoreApplication.Supply);
+        });
+
+        if (marketplaceTab == 0)
+        {
+            BuildStockCatalog(parent);
+        }
+        else
+        {
+            BuildFurnitureCatalog(parent);
+        }
     }
 
     private void BuildFurnitureCatalog(Transform parent)
@@ -1744,7 +1697,7 @@ public sealed class StoreUIService : MonoBehaviour
 
     private void BuildStaff(Transform parent)
     {
-        AddSectionTitle(parent,"STAFF");
+        AddSectionTitle(parent,"EMPLOYEE MANAGEMENT");
 
         var employees =
             GameBootstrap.Instance.Employees.Employees;
@@ -1771,6 +1724,15 @@ public sealed class StoreUIService : MonoBehaviour
                 employee.Definition != null
                     ? employee.Definition.Role.ToString()
                     : "Unassigned");
+
+            if (employee.Definition != null)
+            {
+                EmployeeDefinition stats = employee.Definition;
+                AddMetric(parent,"SPECIALTY",stats.Role.ToString());
+                AddMetric(parent,"DAILY SALARY","$" + stats.DailyWage.ToString("0.00"));
+                AddMetric(parent,"MOVEMENT",stats.MovementSpeed.ToString("0.0"));
+                AddMetric(parent,"WORK SPEED",stats.WorkInterval.ToString("0.00") + " sec/task");
+            }
 
             EmployeeContext capturedEmployee =
                 employee;
@@ -1888,9 +1850,12 @@ public sealed class StoreUIService : MonoBehaviour
             "Customers abandon queues when their patience runs out.");
     }
 
-    private void BuildTasks(Transform parent)
+    private void BuildCareerBoard(Transform parent)
     {
-        AddSectionTitle(parent,"TASKS");
+        AddSectionTitle(parent,"LINKEDIN JOBS");
+        AddMetric(parent,"PROFILE","STORE CLERK · LEVEL " +
+            GameBootstrap.Instance.Progression.StoreLevel);
+        AddSectionTitle(parent,"AVAILABLE CONTRACTS");
         var objectives =
             GameBootstrap.Instance.Objectives.Active;
 
@@ -1898,7 +1863,7 @@ public sealed class StoreUIService : MonoBehaviour
         {
             AddEmptyState(
                 parent,
-                "No active objectives.");
+                "No job opportunities are available right now.");
             return;
         }
 
@@ -2444,15 +2409,15 @@ public sealed class StoreUIService : MonoBehaviour
         return application switch
         {
             StoreApplication.Overview => "OVERVIEW",
-            StoreApplication.Supply => "SUPPLY CO.",
+            StoreApplication.Supply => "STORE",
             StoreApplication.Furniture => "FURNITURE",
             StoreApplication.Register => "REGISTER",
             StoreApplication.Bank => "BANK",
             StoreApplication.History => "HISTORY",
-            StoreApplication.Staff => "STAFF",
+            StoreApplication.Staff => "HIRING & HR",
             StoreApplication.Security => "SECURITY",
             StoreApplication.Messages => "MESSAGES",
-            StoreApplication.Tasks => "TASKS",
+            StoreApplication.Tasks => "LINKEDIN JOBS",
             StoreApplication.Settings => "SETTINGS",
             StoreApplication.SaveLoad => "SAVE / LOAD",
             _ => application.ToString().ToUpperInvariant()

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 
-[CreateAssetMenu(fileName = "New Stock Product",menuName = "Stock System/Stock Product")]
+[CreateAssetMenu(fileName = "New Stock Product",menuName = "Clerk/Products/Product")]
 public class StockInfo : ScriptableObject
 {
     [SerializeField,HideInInspector]

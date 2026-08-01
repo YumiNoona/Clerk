@@ -2,4 +2,5 @@
   <Project Path="Clerk.Runtime.csproj" />
   <Project Path="Clerk.Editor.csproj" />
   <Project Path="Clerk.EditModeTests.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
 </Solution>

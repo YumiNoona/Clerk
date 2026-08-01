@@ -2,7 +2,7 @@ using UnityEngine;
 
 [CreateAssetMenu(
     fileName = "New Customer Definition",
-    menuName = "Store System/Customers/Customer Definition")]
+    menuName = "Clerk/Customers/Definition")]
 public class CustomerDefinition : ScriptableObject
 {
     [Header("Identity")]

@@ -13,7 +13,7 @@ public enum ObjectiveType
 
 [CreateAssetMenu(
     fileName = "New Objective",
-    menuName = "Store System/Objectives/Objective")]
+    menuName = "Clerk/Objectives/Definition")]
 public sealed class ObjectiveDefinition : ScriptableObject
 {
     [SerializeField,HideInInspector]

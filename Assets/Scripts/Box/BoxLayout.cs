@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "New Box Layout",menuName = "Stock System/Box Layout")]
+[CreateAssetMenu(fileName = "New Box Layout",menuName = "Clerk/Products/Box Layout")]
 public class BoxLayout : ScriptableObject
 {
     [Header("Capacity")]

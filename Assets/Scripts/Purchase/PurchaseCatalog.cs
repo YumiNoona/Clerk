@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "Purchase Catalog",menuName = "Store System/Purchase Catalog")]
+[CreateAssetMenu(fileName = "Purchase Catalog",menuName = "Clerk/Store/Purchase Catalog")]
 public class PurchaseCatalog : ScriptableObject
 {
     [Header("Stock")]

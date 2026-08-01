@@ -3,7 +3,7 @@ using UnityEngine;
 
 [CreateAssetMenu(
     fileName = "Customer Database",
-    menuName = "Store System/Customers/Customer Database")]
+    menuName = "Clerk/Customers/Database")]
 public class CustomerDatabase : ScriptableObject
 {
     [Header("Available Customers")]

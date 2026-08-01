@@ -8,7 +8,7 @@ public enum EmployeeRole
 
 [CreateAssetMenu(
     fileName = "New Employee",
-    menuName = "Store System/Employees/Employee")]
+    menuName = "Clerk/Employees/Definition")]
 public sealed class EmployeeDefinition : ScriptableObject
 {
     [SerializeField,HideInInspector]

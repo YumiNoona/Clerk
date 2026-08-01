@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "New Stock Purchase",menuName = "Store System/Purchases/Stock Purchase")]
+[CreateAssetMenu(fileName = "New Stock Purchase",menuName = "Clerk/Products/Purchase Entry")]
 public class StockPurchaseData : PurchasableData
 {
     [Header("Stock")]

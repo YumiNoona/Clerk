@@ -2,7 +2,7 @@ using UnityEngine;
 
 [CreateAssetMenu(
     fileName = "Customer Mood Catalog",
-    menuName = "Store System/Customers/Mood Catalog")]
+    menuName = "Clerk/Customers/Mood Catalog")]
 public sealed class CustomerMoodCatalog : ScriptableObject
 {
     public Texture2D Excited;

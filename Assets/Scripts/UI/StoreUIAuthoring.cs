@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 [DisallowMultipleComponent]
@@ -51,6 +52,18 @@ public sealed class StoreUIAuthoring : MonoBehaviour
     public RectTransform[] ApplicationPages;
     public RectTransform[] ApplicationContents;
 
+    [Header("Desktop Application Icons")]
+    public Sprite OverviewIcon;
+    [FormerlySerializedAs("SupplyIcon")]
+    public Sprite StoreIcon;
+    public Sprite RegisterIcon;
+    public Sprite BankIcon;
+    public Sprite HiringIcon;
+    [FormerlySerializedAs("JobsIcon")]
+    public Sprite LinkedInIcon;
+    public Sprite HistoryIcon;
+    public Sprite SettingsIcon;
+
     [Header("Mobile Device Layout")]
     public RectTransform MobileLayout;
     public RectTransform MobileFrame;
@@ -71,7 +84,7 @@ public sealed class StoreUIAuthoring : MonoBehaviour
         MoneyText != null && ClockText != null && StatusText != null &&
         StartButton != null && PriceInput != null &&
         DeviceContent != null && ApplicationPages != null &&
-        ApplicationPages.Length == 7 && ApplicationContents != null &&
-        ApplicationContents.Length == 7;
+        ApplicationPages.Length == 8 && ApplicationContents != null &&
+        ApplicationContents.Length == 8;
 
 }
